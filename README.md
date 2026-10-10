@@ -28,7 +28,7 @@ PlusLock can't change these, because Android reserves them for the phone maker: 
 
 ## Install
 
-1. Download the latest `PlusLock-vX.Y.Z.apk` from [Releases](https://github.com/nugggy/PlusLock/releases) and open it on the phone.
+1. On the phone, download [PlusLock.apk](https://github.com/nugggy/PlusLock/releases/latest/download/PlusLock.apk) and open it.
 2. Open PlusLock and work through the **Finish setting up** card.
 3. If the accessibility or notification switch is greyed out, go to **App info**, open the three-dot menu and choose **Allow restricted settings**. Android does this for every app installed from a file.
 
@@ -43,23 +43,16 @@ Android asks you to confirm the first update, because a file manager installed t
 
 ## Publishing a release
 
-You only need to do this setup once. Add these repository secrets under **Settings > Secrets and variables > Actions**:
-
-- `SIGNING_KEYSTORE_BASE64`
-- `SIGNING_STORE_PASSWORD`
-- `SIGNING_KEY_ALIAS`
-- `SIGNING_KEY_PASSWORD`
-
-The values are in `%USERPROFILE%\.pluslock\github-secrets.txt` on the machine that created the signing key.
-
-To release, run:
+Releases are built and signed on the maintainer's PC, so the signing key never leaves that machine. You need `keystore.properties` (git-ignored) pointing at the key, and the [GitHub CLI](https://cli.github.com) signed in with `gh auth login`.
 
 ```powershell
 .\scripts\release.ps1 0.2.0          # stable
 .\scripts\release.ps1 0.3.0-beta.1   # beta
 ```
 
-The script pushes a `v` tag. The **Release** workflow then builds, signs and publishes the APK with its checksum, and tags containing `-` are marked as pre-releases.
+The script builds and signs the APK, pushes a `v` tag, and uploads `PlusLock.apk` with its checksum to GitHub Releases. Versions containing `-` are marked as pre-releases.
+
+The newest stable build is always at https://github.com/nugggy/PlusLock/releases/latest/download/PlusLock.apk
 
 Version numbers must keep going up. Minor and patch numbers stay under 100.
 
