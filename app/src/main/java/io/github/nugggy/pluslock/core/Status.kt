@@ -12,7 +12,7 @@ import android.provider.Settings
 import io.github.nugggy.pluslock.service.PlusAccessibilityService
 import io.github.nugggy.pluslock.service.PlusNotificationListener
 
-/** Checks for each permission PlusLock needs, and the screen that grants it. */
+/** Checks for each permission Pimp my Phone needs, and the screen that grants it. */
 object Status {
     fun accessibility(ctx: Context): Boolean {
         if (PlusAccessibilityService.instance != null) return true

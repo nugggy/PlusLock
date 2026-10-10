@@ -119,7 +119,7 @@ private class BreakView(
             gravity = Gravity.CENTER
         })
         col.addView(TextView(ctx).apply {
-            text = "You asked PlusLock to check in. Take a few breaths, then decide."
+            text = "You asked Pimp my Phone to check in. Take a few breaths, then decide."
             setTextColor(0xCCFFFFFF.toInt())
             textSize = 15f
             gravity = Gravity.CENTER

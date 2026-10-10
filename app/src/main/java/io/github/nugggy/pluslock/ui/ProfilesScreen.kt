@@ -124,7 +124,7 @@ fun ProfileEditScreen(nav: Nav, pkg: String) {
                 }
                 SwitchRow("Do Not Disturb while open", "Priority only, switched back when you leave", p.dnd) { save(p.copy(dnd = it)) }
                 if (p.dnd && !Status.dndAccess(ctx)) {
-                    Row2("Allow Do Not Disturb access", "PlusLock needs this to switch Do Not Disturb", onClick = {
+                    Row2("Allow Do Not Disturb access", "Pimp my Phone needs this to switch Do Not Disturb", onClick = {
                         runCatching { ctx.startActivity(Status.dndAccessIntent()) }
                     })
                 }

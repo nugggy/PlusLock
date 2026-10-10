@@ -72,17 +72,17 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
             Perm("Modify system settings", "Per-app rotation and text size", Status.writeSettings(ctx)) {
                 open(Status.writeSettingsIntent(ctx))
             },
-            Perm("Install updates", "Lets PlusLock update itself from GitHub", Status.installUpdates(ctx)) {
+            Perm("Install updates", "Lets Pimp my Phone update itself from GitHub", Status.installUpdates(ctx)) {
                 open(Status.installIntent(ctx))
             },
-            Perm("Run without battery limits", "Stops OxygenOS from closing PlusLock in the background", Status.batteryUnrestricted(ctx)) {
+            Perm("Run without battery limits", "Stops OxygenOS from closing Pimp my Phone in the background", Status.batteryUnrestricted(ctx)) {
                 open(Status.batteryIntent(ctx))
             },
         )
     }
     val missing = perms.count { !it.granted }
 
-    ScreenScaffold("PlusLock", onBack = null) {
+    ScreenScaffold("Pimp my Phone", onBack = null) {
         item {
             Text(
                 "Good Lock style customisation for your OnePlus. No root needed.",
@@ -120,7 +120,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
             }
         }
         item {
-            Section("PlusLock") {
+            Section("Pimp my Phone") {
                 Module(Icons.Rounded.SystemUpdate, "Updates", "Install new versions from GitHub automatically", null) { nav.go(Screen.Updates) }
                 Module(Icons.Rounded.Terminal, "ADB extras", "A one-off step that unlocks a few more features", null) { nav.go(Screen.Adb) }
             }

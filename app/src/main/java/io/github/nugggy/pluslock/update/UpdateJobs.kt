@@ -57,7 +57,7 @@ class InstallResultReceiver : BroadcastReceiver() {
                     runCatching { ctx.startActivity(confirm) }
                 } else {
                     val pi = PendingIntent.getActivity(ctx, 7, confirm, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                    Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "PlusLock update ready",
+                    Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "Pimp my Phone update ready",
                         "Tap to finish installing. After this one, updates install by themselves.", pi)
                 }
                 P.updateStatus.value = "Waiting for you to confirm the install"
@@ -66,7 +66,7 @@ class InstallResultReceiver : BroadcastReceiver() {
             else -> {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "error $status"
                 P.updateStatus.value = "Install failed: $msg"
-                Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "PlusLock update failed", msg, Notifs.openApp(ctx, "updates"))
+                Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "Pimp my Phone update failed", msg, Notifs.openApp(ctx, "updates"))
             }
         }
     }
@@ -81,7 +81,7 @@ class BootReceiver : BroadcastReceiver() {
             if (P.lastSeenVersion.value != v) {
                 P.lastSeenVersion.value = v
                 P.updateStatus.value = "Updated to $v"
-                Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "PlusLock updated to $v",
+                Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "Pimp my Phone updated to $v",
                     "Tap to see what's new.", Notifs.openApp(ctx, "updates"))
             }
         }

@@ -22,7 +22,7 @@ object Notifs {
         val nm = ctx.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "New PlusLock versions and install results"
+                description = "New Pimp my Phone versions and install results"
             }
         )
         nm.createNotificationChannel(

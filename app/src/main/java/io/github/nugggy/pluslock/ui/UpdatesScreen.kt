@@ -67,7 +67,7 @@ fun UpdatesScreen(nav: Nav, resumeTick: Int) {
             busy = false
             // Say what happened even when the status line reads the same as before.
             val msg = r.fold(
-                { if (it != null && Updater.isNewer(it)) "PlusLock ${it.tag} is ready to install" else "You have the latest version" },
+                { if (it != null && Updater.isNewer(it)) "Pimp my Phone ${it.tag} is ready to install" else "You have the latest version" },
                 { "Couldn't reach GitHub. Check your connection." },
             )
             Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
@@ -99,7 +99,7 @@ fun UpdatesScreen(nav: Nav, resumeTick: Int) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("PlusLock ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("Pimp my Phone ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                     Text(if (busy && progress < 0f) "Checking..." else status.ifBlank { "Not checked yet" }, style = MaterialTheme.typography.bodyMedium)
                     if (busy && progress < 0f) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 6.dp))
                     if (lastCheck > 0) Text(
@@ -122,7 +122,7 @@ fun UpdatesScreen(nav: Nav, resumeTick: Int) {
         }
         if (!canInstall) item {
             Section("Permission") {
-                Row2("Allow PlusLock to install updates", "Needed once so it can apply updates for you", onClick = {
+                Row2("Allow Pimp my Phone to install updates", "Needed once so it can apply updates for you", onClick = {
                     ctx.startActivity(Status.installIntent(ctx))
                 })
             }
@@ -156,11 +156,11 @@ fun UpdatesScreen(nav: Nav, resumeTick: Int) {
             }
         }
         item {
-            Note("Android asks you to confirm the first update because PlusLock was installed from a file. After that, PlusLock is its own installer and updates go in quietly. Every download is checked against its published checksum and must carry the same signature as this app.")
+            Note("Android asks you to confirm the first update because Pimp my Phone was installed from a file. After that, Pimp my Phone is its own installer and updates go in quietly. Every download is checked against its published checksum and must carry the same signature as this app.")
         }
         item {
             TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.repoUrl))) }) {
-                Text("PlusLock on GitHub")
+                Text("Pimp my Phone on GitHub")
             }
         }
     }

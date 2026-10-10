@@ -75,7 +75,7 @@ fun LookScreen(nav: Nav, resumeTick: Int) {
             }
         }
         if (clock) item {
-            Note("Android doesn't let apps remove the OxygenOS clock, so this one is drawn on top. For a clean look, pick the smallest clock style in Settings > Wallpapers and style, then move PlusLock's clock clear of it. Lock and wake the phone to see changes.")
+            Note("Android doesn't let apps remove the OxygenOS clock, so this one is drawn on top. For a clean look, pick the smallest clock style in Settings > Wallpapers and style, then move Pimp my Phone's clock clear of it. Lock and wake the phone to see changes.")
         }
         item {
             Section("Status bar") {
@@ -122,7 +122,7 @@ fun AdbScreen(nav: Nav, resumeTick: Int) {
                     Column(Modifier.padding(start = if (granted) 12.dp else 0.dp)) {
                         Text(if (granted) "All set" else "Not set up yet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         Text(
-                            if (granted) "PlusLock can change the keyboard per app, hide status bar icons and start one-handed mode."
+                            if (granted) "Pimp my Phone can change the keyboard per app, hide status bar icons and start one-handed mode."
                             else "A few features need a permission Android only gives out over a USB cable. You do this once, and it stays after updates.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -165,6 +165,6 @@ fun AdbScreen(nav: Nav, resumeTick: Int) {
         if (!granted) item {
             Button(onClick = { check++ }, modifier = Modifier.fillMaxWidth()) { Text("Check again") }
         }
-        item { Note("You can turn USB debugging off again afterwards. The permission stays until you uninstall PlusLock.") }
+        item { Note("You can turn USB debugging off again afterwards. The permission stays until you uninstall Pimp my Phone.") }
     }
 }

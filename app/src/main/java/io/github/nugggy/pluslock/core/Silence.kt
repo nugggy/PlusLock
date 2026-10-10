@@ -7,7 +7,7 @@ import java.util.Date
 /**
  * Pauses edge lighting and the preview bubble: for a while, until switched back on,
  * or until you leave a particular app (handy while watching something).
- * Notifications still arrive as normal; only PlusLock's glow and bubble stay away.
+ * Notifications still arrive as normal; only Pimp my Phone's glow and bubble stay away.
  */
 object Silence {
     private val until get() = P.lightingSilenceUntil

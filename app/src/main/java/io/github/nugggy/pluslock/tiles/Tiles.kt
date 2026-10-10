@@ -43,7 +43,7 @@ abstract class BaseTile : TileService() {
         }
     }
 
-    /** Opens PlusLock when the accessibility service is needed but off. */
+    /** Opens Pimp my Phone when the accessibility service is needed but off. */
     protected fun needService(): PlusAccessibilityService? {
         val svc = PlusAccessibilityService.instance
         if (svc == null) openActivity(Intent(this, MainActivity::class.java))

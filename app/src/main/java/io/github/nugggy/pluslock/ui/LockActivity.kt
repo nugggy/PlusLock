@@ -43,7 +43,7 @@ class LockActivity : ComponentActivity() {
         val signal = CancellationSignal().also { cancel = it }
         BiometricPrompt.Builder(this)
             .setTitle("Unlock $label")
-            .setSubtitle("Locked with PlusLock")
+            .setSubtitle("Locked with Pimp my Phone")
             .setAllowedAuthenticators(auth)
             .build()
             .authenticate(signal, mainExecutor, object : BiometricPrompt.AuthenticationCallback() {

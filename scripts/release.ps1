@@ -1,4 +1,4 @@
-# Publishes a new PlusLock version from this PC.
+# Publishes a new Pimp my Phone version from this PC.
 # Builds and signs the APK locally (the signing key never leaves this machine),
 # tags the commit, and uploads the APK to GitHub Releases. Phones update themselves.
 #
@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { throw "GitHub CLI isn't signed in. Run: gh auth login
 $tag = "v$Version"
 $repo = "nugggy/PlusLock"
 
-Write-Host "Building and signing PlusLock $tag..."
+Write-Host "Building and signing Pimp my Phone $tag..."
 & "$root\gradlew.bat" assembleRelease "-Ppluslock.version=$Version" --console=plain -q
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
@@ -39,7 +39,7 @@ Copy-Item "$root\app\build\outputs\apk\release\app-release.apk" $apk -Force
 # git writes progress to stderr, which Windows PowerShell treats as a failure under 'Stop',
 # so run git with 'Continue' and check its exit code instead.
 $ErrorActionPreference = 'Continue'
-git tag -a $tag -m "PlusLock $tag"
+git tag -a $tag -m "Pimp my Phone $tag"
 if ($LASTEXITCODE -ne 0) { throw "Couldn't create the tag $tag. Does it already exist?" }
 git push origin HEAD 2>&1 | Write-Host
 if ($LASTEXITCODE -ne 0) { throw "Pushing the branch failed." }
@@ -47,7 +47,7 @@ git push origin $tag 2>&1 | Write-Host
 if ($LASTEXITCODE -ne 0) { throw "Pushing the tag $tag failed." }
 $ErrorActionPreference = 'Stop'
 
-$ghArgs = @("release", "create", $tag, $apk, "$apk.sha256", "--repo", $repo, "--title", "PlusLock $tag", "--generate-notes")
+$ghArgs = @("release", "create", $tag, $apk, "$apk.sha256", "--repo", $repo, "--title", "Pimp my Phone $tag", "--generate-notes")
 if ($Version.Contains('-')) { $ghArgs += "--prerelease" }
 & $gh @ghArgs
 if ($LASTEXITCODE -ne 0) { throw "Upload to GitHub failed. The tag $tag was pushed; rerun 'gh release create' or delete the tag and try again." }

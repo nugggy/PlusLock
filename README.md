@@ -1,12 +1,12 @@
-# PlusLock
+# Pimp my Phone
 
 Good Lock style customisation for OnePlus phones, built for the OnePlus 15 (OxygenOS 16, Android 16). No root needed.
 
-Samsung's Good Lock gets deep access to One UI that no third-party app can have, so PlusLock does everything Android allows an ordinary app to do. It also adds a few features Good Lock doesn't have.
+Samsung's Good Lock gets deep access to One UI that no third-party app can have, so Pimp my Phone does everything Android allows an ordinary app to do. It also adds a few features Good Lock doesn't have.
 
 ## Features
 
-| PlusLock | Good Lock equivalent | What it does |
+| Pimp my Phone | Good Lock equivalent | What it does |
 |---|---|---|
 | Gestures | One Hand Operation+ | Handles on the left and right edges. Each side has five gestures (swipe in, in and up, in and down, long swipe, swipe and hold). Each gesture can run back, home, recents, previous app, screenshot, lock, torch, media controls, open any app, and more. Also back tap, shake for the torch, double-tap the status bar to lock, and hold volume to skip tracks. |
 | Edge lighting | Edge Lighting+ | The screen edge, the top edge or the camera glows when a notification arrives. Five effects, each app's own colour, and per-person effects. The preview bubble can be tapped to open, swiped away or used to reply, and groups bursts from one chat. Quiet hours and an unread reminder. |
@@ -27,11 +27,11 @@ Extras Good Lock doesn't have:
 - **Keyword alerts.** An SOS buzz when a message contains a word you choose, even in Do Not Disturb.
 - **Work-hours hold.** Chosen apps stay quiet during set hours, then their notifications come back.
 
-PlusLock can't change these, because Android reserves them for the phone maker: the lock screen layout (PlusLock's clock is drawn on top of it), the always-on display, the navigation bar, the Quick Settings panel colours and the system theme.
+Pimp my Phone can't change these, because Android reserves them for the phone maker: the lock screen layout (Pimp my Phone's clock is drawn on top of it), the always-on display, the navigation bar, the Quick Settings panel colours and the system theme.
 
 ### ADB extras
 
-A few features need a permission that Android only grants over USB, once: keyboard per app, status bar icons and clock seconds, and one-handed mode. PlusLock's ADB extras screen shows the command, which is:
+A few features need a permission that Android only grants over USB, once: keyboard per app, status bar icons and clock seconds, and one-handed mode. Pimp my Phone's ADB extras screen shows the command, which is:
 
 ```
 adb shell pm grant io.github.nugggy.pluslock android.permission.WRITE_SECURE_SETTINGS
@@ -40,17 +40,17 @@ adb shell pm grant io.github.nugggy.pluslock android.permission.WRITE_SECURE_SET
 ## Install
 
 1. On the phone, download [PlusLock.apk](https://github.com/nugggy/PlusLock/releases/latest/download/PlusLock.apk) and open it.
-2. Open PlusLock and work through the **Finish setting up** card.
+2. Open Pimp my Phone and work through the **Finish setting up** card.
 3. If the accessibility or notification switch is greyed out, go to **App info**, open the three-dot menu and choose **Allow restricted settings**. Android does this for every app installed from a file.
 
 ## Updates
 
-PlusLock checks this repository's releases in the background (every 6 hours by default) and installs new versions itself.
+Pimp my Phone checks this repository's releases in the background (every 6 hours by default) and installs new versions itself.
 
 - **Stable channel:** normal releases only.
 - **Beta channel:** pre-releases as well.
 
-Android asks you to confirm the first update, because a file manager installed the app. After that PlusLock is its own installer, so updates go in without a prompt. Each download is checked against the published SHA-256 checksum and must be signed with the same key as the installed app.
+Android asks you to confirm the first update, because a file manager installed the app. After that Pimp my Phone is its own installer, so updates go in without a prompt. Each download is checked against the published SHA-256 checksum and must be signed with the same key as the installed app.
 
 ## Publishing a release
 
@@ -78,4 +78,4 @@ You need JDK 17 or later and the Android SDK (platform 36).
 
 ## Privacy
 
-PlusLock has no analytics and no accounts. It makes two kinds of network request: the update check to GitHub's public API, and, only if you turn on real weather for the wallpaper, a request to Open-Meteo about once an hour with your location rounded to roughly 1 km. The accessibility service listens only for which app is in front. It never reads what's on the screen. If you turn on volume-button track skipping, it also sees volume key presses, and nothing else.
+Pimp my Phone has no analytics and no accounts. It makes two kinds of network request: the update check to GitHub's public API, and, only if you turn on real weather for the wallpaper, a request to Open-Meteo about once an hour with your location rounded to roughly 1 km. The accessibility service listens only for which app is in front. It never reads what's on the screen. If you turn on volume-button track skipping, it also sees volume key presses, and nothing else.

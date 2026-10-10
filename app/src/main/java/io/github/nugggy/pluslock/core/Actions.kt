@@ -60,7 +60,7 @@ object Actions {
         val action = runCatching { GestureAction.valueOf(value) }.getOrDefault(GestureAction.NONE)
         val svc = PlusAccessibilityService.instance
         fun global(a: Int) {
-            if (svc == null) toast(ctx, "Turn on the PlusLock accessibility service first")
+            if (svc == null) toast(ctx, "Turn on the Pimp my Phone accessibility service first")
             else svc.performGlobalAction(a)
         }
         when (action) {
@@ -94,7 +94,7 @@ object Actions {
             GestureAction.SOUND_MODE -> toast(ctx, SoundMode.cycle(ctx))
             GestureAction.ONE_HANDED -> if (!SystemSettings.oneHanded(ctx)) {
                 toast(ctx, if (SystemSettings.hasSecure(ctx)) "One-handed mode isn't available on this phone"
-                else "One-handed mode needs the one-off ADB step in PlusLock")
+                else "One-handed mode needs the one-off ADB step in Pimp my Phone")
             }
             GestureAction.PAUSE_LIGHTING -> toast(ctx, "Edge lighting: " + Silence.cycle())
             GestureAction.VAULT -> ctx.startActivity(
@@ -161,6 +161,6 @@ object SoundMode {
             else -> AudioManager.RINGER_MODE_NORMAL
         }
         return if (set(ctx, next)) label(next)
-        else "PlusLock needs notification access to change sound mode"
+        else "Pimp my Phone needs notification access to change sound mode"
     }
 }

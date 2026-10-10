@@ -61,7 +61,7 @@ import io.github.nugggy.pluslock.wallpaper.SkyWallpaperService
 
 private fun needsService(ctx: Context): Boolean {
     if (PlusAccessibilityService.instance != null) return false
-    Toast.makeText(ctx, "Turn on the PlusLock accessibility service first", Toast.LENGTH_SHORT).show()
+    Toast.makeText(ctx, "Turn on the Pimp my Phone accessibility service first", Toast.LENGTH_SHORT).show()
     return true
 }
 
@@ -245,7 +245,7 @@ fun LightingScreen(nav: Nav) {
                         LightAlert(
                             colour = if (appColour) Apps.accentColour(ctx, ctx.packageName) else colour,
                             icon = Apps.icon(ctx, ctx.packageName),
-                            title = "PlusLock",
+                            title = "Pimp my Phone",
                             text = "This is how your notifications will glow. Longer messages wrap onto a second line if you choose two lines.",
                             key = "preview",
                             count = 2,
@@ -272,7 +272,7 @@ private fun PauseSection() {
         if (status != null) {
             Row2(status, null) { TextButton(onClick = { Silence.resume() }) { Text("Resume") } }
         } else {
-            Row2("Pause bubbles and glow", "Notifications still arrive, PlusLock just stays dark")
+            Row2("Pause bubbles and glow", "Notifications still arrive, Pimp my Phone just stays dark")
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(onClick = { Silence.forMinutes(30) }, modifier = Modifier.weight(1f)) { Text("30 min") }
                 FilledTonalButton(onClick = { Silence.forMinutes(60) }, modifier = Modifier.weight(1f)) { Text("1 hour") }
@@ -289,7 +289,7 @@ private fun LightingRulesSection() {
     val rules = remember(json) { LightingRules.all() }
     var editing by remember { mutableStateOf<Int?>(null) }
     Section("People") {
-        Note("Give someone their own glow. PlusLock matches the name in the notification, for example Mum.")
+        Note("Give someone their own glow. Pimp my Phone matches the name in the notification, for example Mum.")
         rules.forEachIndexed { i, r ->
             Row2(r.match, ruleSummary(r), onClick = { editing = i })
         }
@@ -371,7 +371,7 @@ fun RingScreen(nav: Nav) {
                 PrefSlider(P.ringOffsetY, "Nudge up or down", -40..40) { "%.1f dp".format(it / 2f) }
             }
         }
-        item { Note("PlusLock reads the camera position from Android. If the ring sits a little off on your OnePlus 15, nudge it here. It spins while charging.") }
+        item { Note("Pimp my Phone reads the camera position from Android. If the ring sits a little off on your OnePlus 15, nudge it here. It spins while charging.") }
     }
 }
 
@@ -446,7 +446,7 @@ fun WallpaperScreen(nav: Nav) {
                         ComponentName(ctx, SkyWallpaperService::class.java),
                     )
                     runCatching { ctx.startActivity(i) }.onFailure {
-                        Toast.makeText(ctx, "Open Wallpaper settings and pick PlusLock Sky", Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, "Open Wallpaper settings and pick Pimp my Phone Sky", Toast.LENGTH_LONG).show()
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -523,7 +523,7 @@ fun DeckScreen(nav: Nav) {
                 Row2("Pause lighting", "Pauses edge lighting and bubbles: 30 min, 1 hour, 2 hours, until off")
             }
         }
-        item { Note("To add tiles, pull down Quick Settings fully, tap the pencil (edit) icon and drag the PlusLock tiles into place.") }
+        item { Note("To add tiles, pull down Quick Settings fully, tap the pencil (edit) icon and drag the Pimp my Phone tiles into place.") }
         item {
             Section("Use the deck from a gesture") {
                 Row2("Set an edge gesture to Control deck", "The right handle's long swipe does this out of the box", onClick = { nav.go(Screen.Gestures) })
@@ -584,7 +584,7 @@ private fun HoldSection() {
             Row2("Add an app", null, Icons.Rounded.Add, onClick = { picking = true })
         }
     }
-    if (on) Note("Held notifications are snoozed, not deleted. Android may still play the first sound before PlusLock can snooze it, so also silence that app's notifications if you need total quiet.")
+    if (on) Note("Held notifications are snoozed, not deleted. Android may still play the first sound before Pimp my Phone can snooze it, so also silence that app's notifications if you need total quiet.")
     if (picking) AppPickerDialog(onDismiss = { picking = false }) {
         picking = false
         if (it.pkg !in list) P.holdApps.value = (list + it.pkg).joinToString(",")

@@ -81,7 +81,7 @@ object Updater {
     fun download(ctx: Context, r: Release, progress: (Float) -> Unit = {}): File {
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
-        val out = File(dir, "PlusLock-${r.tag}.apk")
+        val out = File(dir, "Pimp my Phone-${r.tag}.apk")
         val conn = open(r.apkUrl)
         conn.inputStream.use { input ->
             out.outputStream().use { output ->
@@ -131,7 +131,7 @@ object Updater {
     }
 
     /**
-     * Hands the APK to Android. Once PlusLock has installed itself once, Android
+     * Hands the APK to Android. Once Pimp my Phone has installed itself once, Android
      * treats it as its own installer and later updates need no tap.
      */
     fun install(ctx: Context, apk: File) {
@@ -163,13 +163,13 @@ object Updater {
             ?: return status("No releases published yet")
         if (!isNewer(r)) return status("Up to date")
         if (!P.autoUpdate.value || BuildConfig.DEBUG) {
-            Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "PlusLock ${r.tag} is available",
-                "Open PlusLock to install it.", Notifs.openApp(ctx, "updates"))
+            Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "Pimp my Phone ${r.tag} is available",
+                "Open Pimp my Phone to install it.", Notifs.openApp(ctx, "updates"))
             return status("${r.tag} available")
         }
         if (!ctx.packageManager.canRequestPackageInstalls()) {
-            Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "PlusLock ${r.tag} is ready",
-                "Allow PlusLock to install updates so it can apply them for you.", Notifs.openApp(ctx, "updates"))
+            Notifs.post(ctx, Notifs.ID_UPDATE, Notifs.CH_UPDATES, "Pimp my Phone ${r.tag} is ready",
+                "Allow Pimp my Phone to install updates so it can apply them for you.", Notifs.openApp(ctx, "updates"))
             return status("${r.tag} available, install permission needed")
         }
         if (foregroundUi) return status("${r.tag} available")
