@@ -1,7 +1,12 @@
 package io.github.nugggy.pluslock.service
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -9,16 +14,19 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
+import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Prefs
 import io.github.nugggy.pluslock.core.Torch
 
 /**
  * The hub for everything that draws over other apps or reacts to the foreground app.
- * It only listens for window changes and never reads screen content.
+ * It only listens for window changes and never reads screen content. Key events are
+ * only requested while volume-button track skipping is on, and only volume keys are used.
  */
 class PlusAccessibilityService : AccessibilityService() {
 
@@ -43,7 +51,18 @@ class PlusAccessibilityService : AccessibilityService() {
         private set
     lateinit var focus: FocusGuard
         private set
+    lateinit var guard: AppGuard
+        private set
     private lateinit var battery: BatteryWatcher
+    private lateinit var motion: MotionGestures
+    private lateinit var statusTap: StatusBarTap
+    private lateinit var netSpeed: NetSpeed
+    private lateinit var lockClock: LockClock
+    private lateinit var volumeSkip: VolumeSkip
+
+    /** Set by app profiles that turn gestures off, so games keep the top of the screen. */
+    var statusTapSuppressed = false
+        set(v) { if (field != v) { field = v; if (::statusTap.isInitialized) statusTap.refresh() } }
 
     @Volatile var foregroundPkg: String = ""
         private set
@@ -65,18 +84,61 @@ class PlusAccessibilityService : AccessibilityService() {
         ring = CameraRing(this)
         keepAwake = KeepAwake(this)
         focus = FocusGuard(this)
+        guard = AppGuard(this)
         profiles = ProfileEngine(this)
         battery = BatteryWatcher(this)
+        motion = MotionGestures(this)
+        statusTap = StatusBarTap(this)
+        netSpeed = NetSpeed(this)
+        lockClock = LockClock(this)
+        volumeSkip = VolumeSkip(this)
         imePackages = runCatching {
             getSystemService(InputMethodManager::class.java).inputMethodList.map { it.packageName }.toSet()
         }.getOrDefault(emptySet())
         instance = this
         Prefs.sp.registerOnSharedPreferenceChangeListener(prefListener)
+        // Put back anything a previous run changed and didn't get to restore.
+        profiles.restoreAll()
         battery.start()
         gestures.refresh()
         ring.refresh()
         keepAwake.update()
+        registerReceiver(screenReceiver, IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_USER_PRESENT)
+        }, RECEIVER_EXPORTED)
+        motion.refresh()
+        statusTap.refresh()
+        netSpeed.refresh()
+        lockClock.refresh()
+        updateKeyFilter()
     }
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            when (i.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    motion.stop(); netSpeed.remove(); guard.onScreenOff(); statusTap.resume()
+                    lighting.hide(immediate = true)
+                }
+                Intent.ACTION_SCREEN_ON -> { motion.refresh(); netSpeed.refresh() }
+                Intent.ACTION_USER_PRESENT -> guard.onUnlocked()
+            }
+            lockClock.refresh()
+        }
+    }
+
+    /** Volume-button track skipping needs key events, which are only requested while it's switched on. */
+    private fun updateKeyFilter() {
+        val info = serviceInfo ?: return
+        val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        val want = P.volumeSkip.value
+        val has = info.flags and flag != 0
+        if (want == has) return
+        info.flags = if (want) info.flags or flag else info.flags and flag.inv()
+        serviceInfo = info
+    }
+
+    override fun onKeyEvent(event: KeyEvent): Boolean = volumeSkip.onKey(event)
 
     private fun onPrefChanged(key: String) {
         when {
@@ -84,6 +146,12 @@ class PlusAccessibilityService : AccessibilityService() {
             key.startsWith("ring") -> ring.refresh()
             key == "caffeine_until" -> keepAwake.update()
             key == "profiles_json" || key == "profiles_on" -> profiles.reapply()
+            key.startsWith("motion") -> motion.refresh()
+            key.startsWith("statustap") -> statusTap.refresh()
+            key.startsWith("netspeed") -> netSpeed.refresh()
+            key.startsWith("lockclock") -> lockClock.refresh()
+            key.startsWith("bedtime") -> battery.scheduleBedtime()
+            key == "volskip_on" -> updateKeyFilter()
         }
     }
 
@@ -91,8 +159,16 @@ class PlusAccessibilityService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
         val cls = event.className?.toString() ?: return
-        if (pkg == packageName || pkg == "com.android.systemui" || pkg in imePackages) return
+        if (pkg == "com.android.systemui") {
+            // The lock screen is SystemUI: show the custom clock again when it's back in front.
+            lockClock.refresh()
+            return
+        }
+        if (pkg == packageName || pkg in imePackages) return
+        // Another window over the lock screen (the camera, say) shouldn't wear the clock.
+        lockClock.hideIfCovered()
         if (!isActivity(pkg, cls)) return
+        statusTap.resume()
         if (pkg == foregroundPkg) return
         foregroundPkg = pkg
         profiles.onForeground(pkg)
@@ -108,6 +184,9 @@ class PlusAccessibilityService : AccessibilityService() {
         handler.postDelayed({
             gestures.refresh()
             ring.refresh()
+            statusTap.refresh()
+            netSpeed.refresh()
+            lockClock.refresh()
         }, 250)
     }
 
@@ -116,7 +195,13 @@ class PlusAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         instance = null
         runCatching { Prefs.sp.unregisterOnSharedPreferenceChangeListener(prefListener) }
+        runCatching { unregisterReceiver(screenReceiver) }
         if (::battery.isInitialized) battery.stop()
+        if (::motion.isInitialized) motion.stop()
+        if (::statusTap.isInitialized) statusTap.remove()
+        if (::netSpeed.isInitialized) netSpeed.remove()
+        if (::lockClock.isInitialized) lockClock.remove()
+        if (::guard.isInitialized) guard.release()
         if (::gestures.isInitialized) gestures.remove()
         if (::lighting.isInitialized) lighting.hide(immediate = true)
         if (::ring.isInitialized) ring.remove()

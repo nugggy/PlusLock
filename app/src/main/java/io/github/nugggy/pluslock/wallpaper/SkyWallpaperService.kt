@@ -41,6 +41,8 @@ class SkyWallpaperService : WallpaperService() {
                 renderer.theme = P.skyTheme.value
                 renderer.speed = P.skySpeed.value / 100f
                 renderer.showStars = P.skyStars.value
+                renderer.weather = if (P.skyWeather.value) Weather.current() else null
+                Weather.refreshIfStale(this@SkyWallpaperService)
                 if (P.skyParallax.value) {
                     sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
                         sensors.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)

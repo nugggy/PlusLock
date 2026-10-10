@@ -239,6 +239,18 @@ fun PrefChoice(pref: StringPref, title: String, options: Map<String, String>, ic
 }
 
 @Composable
+fun PrefIntChoice(pref: IntPref, title: String, options: Map<Int, String>, icon: ImageVector? = null) {
+    val v by pref.observe()
+    ChoiceRow(title, options.mapKeys { it.key.toString() }, v.toString(), icon) { pref.value = it.toInt() }
+}
+
+/** Picks an hour of the day, shown in 24-hour time. */
+@Composable
+fun HourRow(title: String, pref: IntPref) {
+    PrefIntChoice(pref, title, (0..23).associateWith { "%02d:00".format(it) })
+}
+
+@Composable
 fun ChoiceDialog(title: String, options: Map<String, String>, selected: String, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,

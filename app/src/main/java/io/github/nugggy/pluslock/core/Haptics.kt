@@ -52,12 +52,14 @@ object Haptics {
         else -> null
     }
 
-    fun play(ctx: Context, preset: String, appLabel: String) {
+    /** urgent uses the alarm channel, which Do Not Disturb lets through when alarms are allowed. */
+    fun play(ctx: Context, preset: String, appLabel: String, urgent: Boolean = false) {
         val t = timings(preset, appLabel) ?: return
         val vm = ctx.getSystemService(VibratorManager::class.java) ?: return
         val effect = VibrationEffect.createWaveform(t, -1)
+        val usage = if (urgent) VibrationAttributes.USAGE_ALARM else VibrationAttributes.USAGE_NOTIFICATION
         runCatching {
-            vm.defaultVibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_NOTIFICATION))
+            vm.defaultVibrator.vibrate(effect, VibrationAttributes.createForUsage(usage))
         }
     }
 

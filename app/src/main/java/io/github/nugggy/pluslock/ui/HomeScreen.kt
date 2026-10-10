@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lens
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.SystemUpdate
@@ -67,7 +69,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
             Perm("Show notifications", "Update, charge guard and unsent alerts", Status.postNotifications(ctx)) {
                 notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             },
-            Perm("Modify system settings", "Per-app rotation", Status.writeSettings(ctx)) {
+            Perm("Modify system settings", "Per-app rotation and text size", Status.writeSettings(ctx)) {
                 open(Status.writeSettingsIntent(ctx))
             },
             Perm("Install updates", "Lets PlusLock update itself from GitHub", Status.installUpdates(ctx)) {
@@ -93,32 +95,34 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
 
         item {
             Section("Touch and gestures") {
-                Module(Icons.Rounded.Swipe, "Edge gestures", "Swipe handles for back, home, screenshot and more", P.gesturesOn) { nav.go(Screen.Gestures) }
+                Module(Icons.Rounded.Swipe, "Gestures", "Edge handles, back tap, shake for torch, status bar double-tap", null) { nav.go(Screen.Gestures) }
                 Module(Icons.Rounded.Tune, "Control deck and tiles", "Volume mixer, torch brightness, caffeine, Quick Settings tiles", null) { nav.go(Screen.Deck) }
             }
         }
         item {
             Section("Light and colour") {
-                Module(Icons.Rounded.WbIridescent, "Edge lighting", "The screen edge glows in the app's colour", P.lightingOn) { nav.go(Screen.Lighting) }
+                Module(Icons.Rounded.WbIridescent, "Edge lighting", "A glow and a preview bubble you can tap, swipe or reply from", P.lightingOn) { nav.go(Screen.Lighting) }
                 Module(Icons.Rounded.Lens, "Camera ring", "A battery ring around the selfie camera", P.ringOn) { nav.go(Screen.Ring) }
-                Module(Icons.Rounded.Wallpaper, "Living sky wallpaper", "A live wallpaper that follows the time of day", null) { nav.go(Screen.Wallpaper) }
+                Module(Icons.Rounded.Wallpaper, "Living sky wallpaper", "A live wallpaper that follows the time of day and the weather", null) { nav.go(Screen.Wallpaper) }
+                Module(Icons.Rounded.Palette, "Look and feel", "Lock screen clock, network speed, status bar icons", null) { nav.go(Screen.Look) }
             }
         }
         item {
             Section("Notifications") {
                 Module(Icons.Rounded.History, "Notification vault", "History you can search, and messages people unsend", P.vaultOn) { nav.go(Screen.Vault) }
-                Module(Icons.Rounded.Vibration, "Haptic signatures and read-aloud", "Feel or hear who is messaging without looking", null) { nav.go(Screen.Tricks) }
+                Module(Icons.Rounded.Vibration, "Haptics, keywords and quiet", "Feel who is messaging, keyword alerts, work-hours hold", null) { nav.go(Screen.Tricks) }
             }
         }
         item {
             Section("Apps and battery") {
-                Module(Icons.Rounded.Apps, "App profiles", "Per-app volume, stay awake, rotation and a doomscroll breaker", P.profilesOn) { nav.go(Screen.Profiles) }
-                Module(Icons.Rounded.BatteryChargingFull, "Charge guard", "A nudge to unplug at 80%, plus a charging glow", P.chargeAlertOn) { nav.go(Screen.Battery) }
+                Module(Icons.Rounded.Apps, "App profiles", "Per-app volume, fingerprint lock, time limits, keyboard and more", P.profilesOn) { nav.go(Screen.Profiles) }
+                Module(Icons.Rounded.BatteryChargingFull, "Charge guard", "Unplug nudge, bedtime reminder, time to full", P.chargeAlertOn) { nav.go(Screen.Battery) }
             }
         }
         item {
             Section("PlusLock") {
                 Module(Icons.Rounded.SystemUpdate, "Updates", "Install new versions from GitHub automatically", null) { nav.go(Screen.Updates) }
+                Module(Icons.Rounded.Terminal, "ADB extras", "A one-off step that unlocks a few more features", null) { nav.go(Screen.Adb) }
             }
         }
     }

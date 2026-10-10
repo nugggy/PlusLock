@@ -93,8 +93,30 @@ object P {
     val lightingAppColour = BoolPref("lighting_app_colour", true)
     val lightingColour = IntPref("lighting_colour", 0xFF7FB2FF.toInt())
     val lightingPill = BoolPref("lighting_pill", true)
+    val lightingPillSize = IntPref("lighting_pill_size_pct", 130)
     val lightingRespectDnd = BoolPref("lighting_dnd", true)
     val chargingGlow = BoolPref("charging_glow", true)
+    val lightingShape = StringPref("lighting_shape", "EDGE") // EDGE, TOP, CAMERA
+    val lightingQuietOn = BoolPref("lighting_quiet_on", false)
+    val lightingQuietStart = IntPref("lighting_quiet_start", 22) // hour of day
+    val lightingQuietEnd = IntPref("lighting_quiet_end", 7)
+    val lightingReminder = IntPref("lighting_reminder_min", 0) // 0 off
+    val lightingRulesJson = StringPref("lighting_rules_json", "[]")
+
+    // Notification bubble
+    val bubbleLines = IntPref("bubble_lines", 1)
+    val bubblePosition = StringPref("bubble_position", "TOP") // TOP, BOTTOM
+    val bubbleStyle = StringPref("bubble_style", "DARK") // DARK, LIGHT, GLASS, APP
+    val bubbleTapToOpen = BoolPref("bubble_tap_open", true)
+    val bubbleReply = BoolPref("bubble_reply", true)
+    val bubbleGroup = BoolPref("bubble_group", true)
+
+    // Hold notifications from chosen apps during set hours
+    val holdOn = BoolPref("hold_on", false)
+    val holdApps = StringPref("hold_apps", "") // comma separated packages
+    val holdStart = IntPref("hold_start", 9)
+    val holdEnd = IntPref("hold_end", 17)
+    val holdWeekdaysOnly = BoolPref("hold_weekdays", true)
 
     // Camera ring
     val ringOn = BoolPref("ring_on", false)
@@ -107,15 +129,44 @@ object P {
     val ringColour = IntPref("ring_colour", 0xFF7FB2FF.toInt())
     val ringHideLandscape = BoolPref("ring_hide_landscape", true)
     val ringShowTrack = BoolPref("ring_track", true)
+    val ringShowEta = BoolPref("ring_eta", true)
 
     // Charge guard
     val chargeAlertOn = BoolPref("charge_alert_on", false)
     val chargeAlertLevel = IntPref("charge_alert_level", 80)
+    val bedtimeOn = BoolPref("bedtime_on", false)
+    val bedtimeHour = IntPref("bedtime_hour", 22)
+    val bedtimeMinute = IntPref("bedtime_minute", 0)
+    val bedtimeBelow = IntPref("bedtime_below", 50)
 
     // Notification vault (NotiStar)
     val vaultOn = BoolPref("vault_on", true)
     val vaultRetentionDays = IntPref("vault_retention_days", 30)
     val unsentAlert = BoolPref("unsent_alert", true)
+    val keywordsOn = BoolPref("keywords_on", false)
+    val keywords = StringPref("keywords", "urgent, emergency")
+    val keywordsBreakDnd = BoolPref("keywords_dnd", true)
+
+    // Motion gestures
+    val shakeTorch = BoolPref("motion_shake_torch", false)
+    val shakeSensitivity = IntPref("motion_shake_sens", 50)
+    val backTapOn = BoolPref("motion_backtap_on", false)
+    val backTapAction = StringPref("motion_backtap_action", GestureAction.SCREENSHOT.name)
+    val backTapSensitivity = IntPref("motion_backtap_sens", 50)
+    val statusTapLock = BoolPref("statustap_on", false)
+    val volumeSkip = BoolPref("volskip_on", false)
+
+    // Look and feel
+    val netSpeedOn = BoolPref("netspeed_on", false)
+    val netSpeedSide = StringPref("netspeed_side", "LEFT")
+    val netSpeedHideLandscape = BoolPref("netspeed_hide_landscape", true)
+    val lockClockOn = BoolPref("lockclock_on", false)
+    val lockClockStyle = StringPref("lockclock_style", "BOLD")
+    val lockClockFont = StringPref("lockclock_font", "SANS")
+    val lockClockColour = IntPref("lockclock_colour", 0xFFFFFFFF.toInt())
+    val lockClockPosition = IntPref("lockclock_position", 22)
+    val lockClockSize = IntPref("lockclock_size", 100)
+    val lockClockDate = BoolPref("lockclock_date", true)
 
     // Notification tricks
     val hapticsOn = BoolPref("haptics_on", true)
@@ -136,6 +187,8 @@ object P {
     val skyParallax = BoolPref("sky_parallax", true)
     val skySpeed = IntPref("sky_speed", 100)
     val skyStars = BoolPref("sky_stars", true)
+    val skyWeather = BoolPref("sky_weather", false)
+    val skyWeatherJson = StringPref("sky_weather_json", "")
 
     // Updates
     val updateChannel = StringPref("update_channel", "stable")

@@ -35,6 +35,11 @@ object Status {
     fun batteryUnrestricted(ctx: Context): Boolean =
         ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
 
+    fun dndAccess(ctx: Context): Boolean =
+        ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
+
+    fun dndAccessIntent() = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+
     private fun pkgUri(ctx: Context) = Uri.parse("package:" + ctx.packageName)
 
     fun accessibilityIntent() = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)

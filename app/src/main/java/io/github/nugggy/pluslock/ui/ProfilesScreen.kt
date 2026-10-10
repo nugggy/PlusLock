@@ -29,6 +29,8 @@ import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Status
 import io.github.nugggy.pluslock.data.AppProfile
 import io.github.nugggy.pluslock.data.Profiles
+import io.github.nugggy.pluslock.core.SystemSettings
+import io.github.nugggy.pluslock.service.AppGuard
 
 @Composable
 fun ProfilesScreen(nav: Nav) {
@@ -70,6 +72,17 @@ fun ProfilesScreen(nav: Nav) {
 }
 
 @Composable
+private fun KeyboardRow(p: AppProfile, nav: Nav, save: (AppProfile) -> Unit) {
+    val ctx = LocalContext.current
+    val boards = remember { SystemSettings.keyboards(ctx) }
+    val options = linkedMapOf("" to "Leave as is") + boards.associate { it.id to it.label }
+    ChoiceRow("Keyboard", options, p.keyboard) { save(p.copy(keyboard = it)) }
+    if (p.keyboard.isNotEmpty() && !SystemSettings.hasSecure(ctx)) {
+        Row2("Needs the one-off ADB step", "Tap to see how", onClick = { nav.go(Screen.Adb) })
+    }
+}
+
+@Composable
 fun ProfileEditScreen(nav: Nav, pkg: String) {
     val ctx = LocalContext.current
     val json by P.profilesJson.observe()
@@ -99,6 +112,37 @@ fun ProfileEditScreen(nav: Nav, pkg: String) {
                 ) { save(p.copy(rotation = it.toInt())) }
                 if (p.rotation > 0 && !Status.writeSettings(ctx)) {
                     Note("Rotation needs Modify system settings, which you can allow on the home screen.")
+                }
+                ChoiceRow(
+                    "Text size",
+                    linkedMapOf("0" to "Leave as is", "85" to "Small (85%)", "100" to "Default (100%)", "115" to "Large (115%)",
+                        "130" to "Larger (130%)", "150" to "Largest (150%)", "170" to "Huge (170%)"),
+                    p.fontScale.toString(),
+                ) { save(p.copy(fontScale = it.toInt())) }
+                if (p.fontScale > 0 && !Status.writeSettings(ctx)) {
+                    Note("Text size needs Modify system settings, which you can allow on the home screen.")
+                }
+                SwitchRow("Do Not Disturb while open", "Priority only, switched back when you leave", p.dnd) { save(p.copy(dnd = it)) }
+                if (p.dnd && !Status.dndAccess(ctx)) {
+                    Row2("Allow Do Not Disturb access", "PlusLock needs this to switch Do Not Disturb", onClick = {
+                        runCatching { ctx.startActivity(Status.dndAccessIntent()) }
+                    })
+                }
+                KeyboardRow(p, nav) { save(it) }
+            }
+        }
+        item {
+            Section("Lock and limits") {
+                SwitchRow("Fingerprint lock", "Asks for your fingerprint or screen lock before $label opens", p.locked) { save(p.copy(locked = it)) }
+                ChoiceRow(
+                    "Daily time limit",
+                    linkedMapOf("0" to "No limit", "15" to "15 minutes", "30" to "30 minutes", "45" to "45 minutes", "60" to "1 hour",
+                        "90" to "1 hour 30 minutes", "120" to "2 hours", "180" to "3 hours"),
+                    p.dailyMinutes.toString(),
+                ) { save(p.copy(dailyMinutes = it.toInt())) }
+                if (p.dailyMinutes > 0) {
+                    val used = remember(json) { AppGuard.instance?.usedMs(pkg)?.let { it / 60_000L } }
+                    Note(if (used != null) "Used today: $used min. The limit resets at midnight." else "The limit resets at midnight.")
                 }
             }
         }

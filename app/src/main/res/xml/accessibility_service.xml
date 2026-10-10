@@ -5,6 +5,7 @@
     android:accessibilityFlags="flagDefault"
     android:canRetrieveWindowContent="false"
     android:canPerformGestures="false"
+    android:canRequestFilterKeyEvents="true"
     android:description="@string/a11y_description"
     android:notificationTimeout="80"
     android:settingsActivity="io.github.nugggy.pluslock.ui.MainActivity" />

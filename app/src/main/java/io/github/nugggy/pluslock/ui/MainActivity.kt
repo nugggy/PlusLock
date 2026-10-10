@@ -31,6 +31,8 @@ sealed class Screen {
     data object Battery : Screen()
     data object Wallpaper : Screen()
     data object Updates : Screen()
+    data object Look : Screen()
+    data object Adb : Screen()
 
     companion object {
         fun fromExtra(s: String?): Screen? = when (s) {
@@ -84,6 +86,8 @@ class MainActivity : ComponentActivity() {
                             Screen.Battery -> BatteryScreen(nav)
                             Screen.Wallpaper -> WallpaperScreen(nav)
                             Screen.Updates -> UpdatesScreen(nav, resumeTick)
+                            Screen.Look -> LookScreen(nav, resumeTick)
+                            Screen.Adb -> AdbScreen(nav, resumeTick)
                         }
                     }
                 }

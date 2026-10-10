@@ -33,6 +33,7 @@ enum class GestureAction(val label: String) {
     CAFFEINE("Caffeine on or off"),
     SOUND_MODE("Cycle sound mode"),
     VAULT("Notification vault"),
+    ONE_HANDED("One-handed mode"),
     LAUNCH_APP("Open an app"),
 }
 
@@ -90,6 +91,10 @@ object Actions {
                 toast(ctx, if (on) "Caffeine off" else "Caffeine on until you turn it off")
             }
             GestureAction.SOUND_MODE -> toast(ctx, SoundMode.cycle(ctx))
+            GestureAction.ONE_HANDED -> if (!SystemSettings.oneHanded(ctx)) {
+                toast(ctx, if (SystemSettings.hasSecure(ctx)) "One-handed mode isn't available on this phone"
+                else "One-handed mode needs the one-off ADB step in PlusLock")
+            }
             GestureAction.VAULT -> ctx.startActivity(
                 Intent(ctx, MainActivity::class.java)
                     .putExtra(MainActivity.EXTRA_SCREEN, "vault")

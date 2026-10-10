@@ -8,12 +8,13 @@ Samsung's Good Lock gets deep access to One UI that no third-party app can have,
 
 | PlusLock | Good Lock equivalent | What it does |
 |---|---|---|
-| Edge gestures | One Hand Operation+ | Handles on the left and right edges. Each side has five gestures (swipe in, in and up, in and down, long swipe, swipe and hold). Each gesture can run back, home, recents, previous app, screenshot, lock, torch, media controls, open any app, and more. |
-| Edge lighting | Edge Lighting+ | The screen edge glows when a notification arrives. Five effects. Uses each app's own brand colour, with a preview bubble. |
+| Gestures | One Hand Operation+ | Handles on the left and right edges. Each side has five gestures (swipe in, in and up, in and down, long swipe, swipe and hold). Each gesture can run back, home, recents, previous app, screenshot, lock, torch, media controls, open any app, and more. Also back tap, shake for the torch, double-tap the status bar to lock, and hold volume to skip tracks. |
+| Edge lighting | Edge Lighting+ | The screen edge, the top edge or the camera glows when a notification arrives. Five effects, each app's own colour, and per-person effects. The preview bubble can be tapped to open, swiped away or used to reply, and groups bursts from one chat. Quiet hours and an unread reminder. |
 | Notification vault | NotiStar | Searchable notification history, kept on the phone only. |
-| App profiles | Sound Assistant, Display Assistant | Per-app media volume with volume memory, keep the screen on, and rotation lock. You can also switch edge gestures or lighting off per app. |
+| App profiles | Sound Assistant, Display Assistant | Per-app media volume with volume memory, keep the screen on, rotation lock, text size, keyboard and Do Not Disturb. Fingerprint lock and daily time limits. You can also switch edge gestures or lighting off per app. |
 | Control deck and tiles | QuickStar, Sound Assistant | A floating mixer with separate volume sliders, sound mode, torch brightness and caffeine. Six Quick Settings tiles. |
-| Living sky wallpaper | Wonderland | A live wallpaper that changes with the time of day and tilts with the phone. |
+| Living sky wallpaper | Wonderland | A live wallpaper that changes with the time of day (or your real sunrise and sunset), shows rain, snow and cloud, and tilts with the phone. |
+| Look and feel | LockStar, QuickStar | A custom lock screen clock, network speed beside the camera, and status bar icon hiding. |
 
 Extras Good Lock doesn't have:
 
@@ -22,9 +23,19 @@ Extras Good Lock doesn't have:
 - **Haptic signatures.** Each app gets its own vibration pattern, including Morse code of the app's first letter.
 - **Read-aloud.** Speaks new messages from the apps you choose, through headphones only if you prefer.
 - **Doomscroll breaker.** After a time limit you set in an app, the screen dims for a short breathing pause. Then you choose to leave or have 5 more minutes.
-- **Charge guard.** A nudge to unplug at 80% (or any level you set), plus a green glow when you plug in.
+- **Charge guard.** A nudge to unplug at 80% (or any level you set), a bedtime reminder to plug in, time to full beside the camera, and a green glow when you plug in.
+- **Keyword alerts.** An SOS buzz when a message contains a word you choose, even in Do Not Disturb.
+- **Work-hours hold.** Chosen apps stay quiet during set hours, then their notifications come back.
 
-PlusLock can't change these, because Android reserves them for the phone maker: the lock screen clock and layout, the always-on display, the navigation bar, the system keyboard and the system theme.
+PlusLock can't change these, because Android reserves them for the phone maker: the lock screen layout (PlusLock's clock is drawn on top of it), the always-on display, the navigation bar, the Quick Settings panel colours and the system theme.
+
+### ADB extras
+
+A few features need a permission that Android only grants over USB, once: keyboard per app, status bar icons and clock seconds, and one-handed mode. PlusLock's ADB extras screen shows the command, which is:
+
+```
+adb shell pm grant io.github.nugggy.pluslock android.permission.WRITE_SECURE_SETTINGS
+```
 
 ## Install
 
@@ -67,4 +78,4 @@ You need JDK 17 or later and the Android SDK (platform 36).
 
 ## Privacy
 
-PlusLock has no analytics and no accounts, and it sends nothing anywhere. The only network request is the update check to GitHub's public API. The accessibility service listens only for which app is in front. It never reads what's on the screen.
+PlusLock has no analytics and no accounts. It makes two kinds of network request: the update check to GitHub's public API, and, only if you turn on real weather for the wallpaper, a request to Open-Meteo about once an hour with your location rounded to roughly 1 km. The accessibility service listens only for which app is in front. It never reads what's on the screen. If you turn on volume-button track skipping, it also sees volume key presses, and nothing else.

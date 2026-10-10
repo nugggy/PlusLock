@@ -38,16 +38,33 @@ class SkyRenderer {
         private val BLOOM = Palette(0xFF0D0710.toInt(), intArrayOf(0xFFFF80AB.toInt(), 0xFFEA80FC.toInt(), 0xFFFFD180.toInt(), 0xFFB9F6CA.toInt(), 0xFF8C9EFF.toInt()), false)
         private val MONO = Palette(0xFF000000.toInt(), intArrayOf(0xFF9E9E9E.toInt(), 0xFF616161.toInt(), 0xFFBDBDBD.toInt(), 0xFF424242.toInt(), 0xFF757575.toInt()), true)
 
-        fun paletteFor(theme: String): Palette = when (theme) {
+        fun paletteFor(theme: String, weather: Weather.Now? = null): Palette = when (theme) {
             "AURORA" -> NIGHT
             "EMBER" -> EMBER
             "OCEAN" -> OCEAN
             "BLOOM" -> BLOOM
             "MONO" -> MONO
-            else -> when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+            else -> if (weather != null && weather.sunrise > 0) bySun(weather) else when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
                 in 5..7 -> DAWN
                 in 8..16 -> DAY
                 in 17..19 -> DUSK
+                else -> NIGHT
+            }
+        }
+
+        /** Dawn and dusk follow today's real sunrise and sunset. */
+        private fun bySun(w: Weather.Now): Palette {
+            val now = System.currentTimeMillis()
+            // Sunrise and sunset are for today; shift them to the current day if they're stale.
+            val dayMs = 86_400_000L
+            val shift = ((now - w.sunrise) / dayMs).coerceAtLeast(0) * dayMs
+            val rise = w.sunrise + shift
+            val set = w.sunset + shift
+            val min = 60_000L
+            return when (now) {
+                in (rise - 45 * min) until (rise + 90 * min) -> DAWN
+                in (rise + 90 * min) until (set - 90 * min) -> DAY
+                in (set - 90 * min) until (set + 60 * min) -> DUSK
                 else -> NIGHT
             }
         }
@@ -64,6 +81,11 @@ class SkyRenderer {
     var theme = "LIVING"
     var speed = 1f
     var showStars = true
+    /** Real weather for the living sky, or null to ignore it. */
+    var weather: Weather.Now? = null
+
+    private val dropPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; strokeCap = Paint.Cap.ROUND }
+    private val drops = List(90) { floatArrayOf(Random.nextFloat(), Random.nextFloat(), 0.6f + Random.nextFloat() * 0.8f) }
 
     fun touch(x: Float, y: Float, t: Float) {
         if (ripples.size > 6) ripples.removeAt(0)
@@ -71,13 +93,14 @@ class SkyRenderer {
     }
 
     fun draw(c: Canvas, w: Int, h: Int, t: Float, tiltX: Float, tiltY: Float, scroll: Float) {
-        val pal = paletteFor(theme)
+        val sky = if (theme == "LIVING") weather else null
+        val pal = paletteFor(theme, sky)
         c.drawColor(pal.bg)
         val s = t * speed
         val big = max(w, h).toFloat()
         val density = w / 400f
 
-        if (pal.stars && showStars) {
+        if (pal.stars && showStars && sky?.cloudy != true) {
             for (st in stars) {
                 val a = 0.35f + 0.65f * (0.5f + 0.5f * sin(s * 0.8f * st[3] + st[2]))
                 starPaint.alpha = (a * 200).toInt()
@@ -95,6 +118,8 @@ class SkyRenderer {
         }
         paint.shader = null
 
+        if (sky != null) drawWeather(c, sky, s, density)
+
         val it = ripples.iterator()
         while (it.hasNext()) {
             val r = it.next()
@@ -105,6 +130,31 @@ class SkyRenderer {
             ripplePaint.strokeWidth = 3f * density
             c.drawCircle(r.x, r.y, age * 260 * density, ripplePaint)
         }
+    }
+
+    private fun drawWeather(c: Canvas, w: Weather.Now, s: Float, density: Float) {
+        val width = c.width.toFloat(); val height = c.height.toFloat()
+        // Cloud cover: a soft grey veil that mutes the colours.
+        if (w.cloudy) c.drawColor(if (w.rain || w.snow) 0x40707884 else 0x2A8A9099)
+        when {
+            w.rain -> {
+                dropPaint.strokeWidth = 1.4f * density
+                for (d in drops) {
+                    val y = ((d[1] + s * 0.55f * d[2]) % 1f) * (height + 60 * density) - 30 * density
+                    val x = d[0] * width - y * 0.08f
+                    dropPaint.alpha = (60 + 70 * d[2]).toInt()
+                    c.drawLine(x, y, x - 3 * density, y + 18 * density * d[2], dropPaint)
+                }
+            }
+            w.snow -> for (d in drops) {
+                val y = ((d[1] + s * 0.06f * d[2]) % 1f) * height
+                val x = d[0] * width + sin(s * 0.8f + d[0] * 20f) * 10 * density
+                dropPaint.alpha = (110 + 90 * (d[2] - 0.6f)).toInt()
+                c.drawCircle(x, y, 1.6f * density * d[2], dropPaint)
+            }
+        }
+        // Thunderstorms: a brief flash every so often.
+        if (w.storm && (s % 9f) < 0.12f) c.drawColor(0x55FFFFFF)
     }
 
     val hasRipples: Boolean get() = ripples.isNotEmpty()

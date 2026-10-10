@@ -16,7 +16,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -40,8 +47,14 @@ import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Side
 import io.github.nugggy.pluslock.core.Swipe
 import io.github.nugggy.pluslock.core.Torch
+import io.github.nugggy.pluslock.data.LightingRule
+import io.github.nugggy.pluslock.data.LightingRules
+import io.github.nugggy.pluslock.service.LightAlert
 import io.github.nugggy.pluslock.service.PlusAccessibilityService
 import io.github.nugggy.pluslock.wallpaper.SkyRenderer
+import io.github.nugggy.pluslock.wallpaper.Weather
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import io.github.nugggy.pluslock.wallpaper.SkyWallpaperService
 
 private fun needsService(ctx: Context): Boolean {
@@ -56,7 +69,7 @@ private fun needsService(ctx: Context): Boolean {
 fun GesturesScreen(nav: Nav) {
     val ctx = LocalContext.current
     val colour by P.handleColor.observe()
-    ScreenScaffold("Edge gestures", nav.back) {
+    ScreenScaffold("Gestures", nav.back) {
         item {
             Section("Handles") {
                 PrefSwitch(P.gesturesOn, "Edge gestures", "Thin handles on the screen edges")
@@ -84,6 +97,51 @@ fun GesturesScreen(nav: Nav) {
                     for (dir in Swipe.entries) GestureActionRow(ctx, side, dir)
                 }
             }
+        }
+        item { MotionSection(ctx) }
+    }
+}
+
+@Composable
+private fun MotionSection(ctx: Context) {
+    val shake by P.shakeTorch.observe()
+    val backTap by P.backTapOn.observe()
+    Section("Motion and buttons") {
+        PrefSwitch(P.shakeTorch, "Shake for the torch", "Two firm shakes turn the torch on or off")
+        if (shake) PrefSlider(P.shakeSensitivity, "Shake sensitivity", 0..100) { "$it%" }
+        PrefSwitch(P.backTapOn, "Back tap", "Double-tap the back of the phone")
+        if (backTap) {
+            ActionPickerRow(ctx, "Back tap does", P.backTapAction)
+            PrefSlider(P.backTapSensitivity, "Back tap sensitivity", 0..100) { "$it%" }
+        }
+        PrefSwitch(P.statusTapLock, "Double-tap the status bar to lock", "Swiping down on the status bar still opens the shade")
+        PrefSwitch(P.volumeSkip, "Hold volume to skip tracks", "While music plays: hold up for next, down for previous")
+    }
+    Note("Motion gestures only listen while the screen is on. Back tap uses the motion sensor, so it can miss a gentle tap or catch a bump. Adjust the sensitivity to suit. Track skipping only works with the screen on, because Android stops sending button presses to apps when it's off.")
+}
+
+/** Choose any gesture action, or an app to open, for a single setting. */
+@Composable
+private fun ActionPickerRow(ctx: Context, title: String, pref: io.github.nugggy.pluslock.core.StringPref) {
+    val value by pref.observe()
+    var picking by remember { mutableStateOf(false) }
+    var pickingApp by remember { mutableStateOf(false) }
+    Row2(title, Actions.label(ctx, value), onClick = { picking = true })
+    if (picking) {
+        ChoiceDialog(
+            title,
+            GestureAction.entries.associate { it.name to it.label },
+            if (value.startsWith("APP:")) GestureAction.LAUNCH_APP.name else value,
+            { picking = false },
+        ) {
+            picking = false
+            if (it == GestureAction.LAUNCH_APP.name) pickingApp = true else pref.value = it
+        }
+    }
+    if (pickingApp) {
+        AppPickerDialog(onDismiss = { pickingApp = false }) {
+            pref.value = Actions.appAction(it.pkg)
+            pickingApp = false
         }
     }
 }
@@ -121,6 +179,8 @@ fun LightingScreen(nav: Nav) {
     val ctx = LocalContext.current
     val colour by P.lightingColour.observe()
     val appColour by P.lightingAppColour.observe()
+    val pill by P.lightingPill.observe()
+    val quiet by P.lightingQuietOn.observe()
     ScreenScaffold("Edge lighting", nav.back) {
         item {
             Section("Edge lighting") {
@@ -132,17 +192,45 @@ fun LightingScreen(nav: Nav) {
                     "RAINBOW" to "Rainbow: every colour at once",
                     "SOLID" to "Solid: a steady glow",
                 ))
+                PrefChoice(P.lightingShape, "Where it glows", mapOf(
+                    "EDGE" to "The whole screen edge",
+                    "TOP" to "Just the top edge",
+                    "CAMERA" to "Around the selfie camera",
+                ))
                 PrefSlider(P.lightingThickness, "Thickness", 2..14) { "$it dp" }
                 PrefSlider(P.lightingDuration, "How long", 2..15) { "$it s" }
             }
         }
         item {
-            Section("Colour and details") {
+            Section("Colour and timing") {
                 PrefSwitch(P.lightingAppColour, "Use each app's colour", "Taken from the app's brand colour or icon")
                 if (!appColour) ColourRow("Colour", colour) { P.lightingColour.value = it }
-                PrefSwitch(P.lightingPill, "Show a preview bubble", "App icon, sender and a line of the message")
                 PrefSwitch(P.lightingRespectDnd, "Stay dark in Do Not Disturb")
+                PrefSwitch(P.lightingQuietOn, "Quiet hours", "No glow during these hours, Do Not Disturb or not")
+                if (quiet) {
+                    HourRow("From", P.lightingQuietStart)
+                    HourRow("Until", P.lightingQuietEnd)
+                }
+                PrefIntChoice(P.lightingReminder, "Unread reminder", linkedMapOf(
+                    0 to "Off", 2 to "Every 2 minutes", 5 to "Every 5 minutes", 10 to "Every 10 minutes", 30 to "Every 30 minutes",
+                ))
                 PrefSwitch(P.chargingGlow, "Glow green when you plug in")
+            }
+        }
+        item {
+            Section("Preview bubble") {
+                PrefSwitch(P.lightingPill, "Show a preview bubble", "App icon, sender and the message")
+                if (pill) {
+                    PrefSlider(P.lightingPillSize, "Text size", 80..200) { "$it%" }
+                    PrefIntChoice(P.bubbleLines, "Message lines", linkedMapOf(1 to "One line", 2 to "Two lines", 3 to "Three lines"))
+                    PrefChoice(P.bubblePosition, "Position", mapOf("TOP" to "Top of the screen", "BOTTOM" to "Bottom of the screen"))
+                    PrefChoice(P.bubbleStyle, "Style", linkedMapOf(
+                        "DARK" to "Dark", "LIGHT" to "Light", "GLASS" to "Glass: see-through", "APP" to "The app's colour",
+                    ))
+                    PrefSwitch(P.bubbleTapToOpen, "Tap to open", "Opens the message. Swipe the bubble away to dismiss it.")
+                    PrefSwitch(P.bubbleReply, "Quick reply", "A Reply button for apps that support it, such as WhatsApp and Messages")
+                    PrefSwitch(P.bubbleGroup, "Group messages", "A burst from one chat updates one bubble with a count")
+                }
             }
         }
         item {
@@ -150,15 +238,80 @@ fun LightingScreen(nav: Nav) {
                 onClick = {
                     if (needsService(ctx)) return@Button
                     PlusAccessibilityService.instance?.lighting?.show(
-                        if (appColour) Apps.accentColour(ctx, ctx.packageName) else colour,
-                        Apps.icon(ctx, ctx.packageName), "PlusLock", "This is how your notifications will glow",
+                        LightAlert(
+                            colour = if (appColour) Apps.accentColour(ctx, ctx.packageName) else colour,
+                            icon = Apps.icon(ctx, ctx.packageName),
+                            title = "PlusLock",
+                            text = "This is how your notifications will glow. Longer messages wrap onto a second line if you choose two lines.",
+                            key = "preview",
+                            count = 2,
+                        )
                     )
                 },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) { Text("Preview") }
         }
+        item { LightingRulesSection() }
         item { Note("Per-app colours and opt-outs live in App profiles.") }
     }
+}
+
+@Composable
+private fun LightingRulesSection() {
+    val json by P.lightingRulesJson.observe()
+    val rules = remember(json) { LightingRules.all() }
+    var editing by remember { mutableStateOf<Int?>(null) }
+    Section("People") {
+        Note("Give someone their own glow. PlusLock matches the name in the notification, for example Mum.")
+        rules.forEachIndexed { i, r ->
+            Row2(r.match, ruleSummary(r), onClick = { editing = i })
+        }
+        Row2("Add a person", null, Icons.Rounded.PersonAdd, onClick = { editing = -1 })
+    }
+    val e = editing
+    if (e != null) RuleDialog(
+        initial = rules.getOrNull(e) ?: LightingRule(""),
+        canDelete = e >= 0,
+        onDismiss = { editing = null },
+        onDelete = { LightingRules.save(rules.filterIndexed { i, _ -> i != e }); editing = null },
+        onSave = { r ->
+            LightingRules.save(if (e >= 0) rules.mapIndexed { i, old -> if (i == e) r else old } else rules + r)
+            editing = null
+        },
+    )
+}
+
+private val ruleEffects = linkedMapOf(
+    "" to "Same as everyone", "COMET" to "Comet", "PULSE" to "Pulse", "NEON" to "Neon", "RAINBOW" to "Rainbow", "SOLID" to "Solid",
+)
+
+private fun ruleSummary(r: LightingRule) =
+    listOfNotNull(ruleEffects[r.effect]?.takeIf { r.effect.isNotEmpty() }, if (r.colour != 0) "own colour" else null)
+        .joinToString(", ").ifEmpty { "No changes yet" }
+
+@Composable
+private fun RuleDialog(initial: LightingRule, canDelete: Boolean, onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (LightingRule) -> Unit) {
+    var name by remember { mutableStateOf(initial.match) }
+    var effect by remember { mutableStateOf(initial.effect) }
+    var colour by remember { mutableIntStateOf(initial.colour) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (canDelete) "Edit person" else "Add a person") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Name as it appears") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                ChoiceRow("Effect", ruleEffects, effect) { effect = it }
+                ColourRow("Colour", colour, allowAuto = true) { colour = it }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(LightingRule(name.trim(), effect, colour)) }, enabled = name.isNotBlank()) { Text("Save") } },
+        dismissButton = {
+            Row {
+                if (canDelete) TextButton(onClick = onDelete) { Text("Delete") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 // ---------------------------------------------------------------- Camera ring
@@ -173,6 +326,7 @@ fun RingScreen(nav: Nav) {
                 PrefSwitch(P.ringOn, "Camera ring", "Battery level drawn around the selfie camera")
                 PrefSwitch(P.ringShowTrack, "Show the empty part of the ring")
                 PrefSwitch(P.ringHideLandscape, "Hide in landscape")
+                PrefSwitch(P.ringShowEta, "Time to full while charging", "A small label beside the camera")
                 PrefChoice(P.ringColourMode, "Colour", mapOf(
                     "LEVEL" to "White, turning orange then red when low",
                     "ACCENT" to "My colour, turning orange then red when low",
@@ -206,8 +360,20 @@ fun BatteryScreen(nav: Nav) {
             }
         }
         item {
+            val bedtime by P.bedtimeOn.observe()
+            Section("Bedtime reminder") {
+                PrefSwitch(P.bedtimeOn, "Remind me to charge", "Only if the phone isn't already on the charger")
+                if (bedtime) {
+                    HourRow("At", P.bedtimeHour)
+                    PrefIntChoice(P.bedtimeMinute, "Minutes past", linkedMapOf(0 to ":00", 15 to ":15", 30 to ":30", 45 to ":45"))
+                    PrefSlider(P.bedtimeBelow, "When the battery is below", 20..100) { "$it%" }
+                }
+            }
+        }
+        item {
             Section("While charging") {
                 PrefSwitch(P.chargingGlow, "Green glow when you plug in")
+                PrefSwitch(P.ringShowEta, "Time to full beside the camera", "Needs the camera ring switched on")
                 Row2("Camera ring", "The ring spins while charging. Set it up under Camera ring.", onClick = { nav.go(Screen.Ring) })
             }
         }
@@ -223,11 +389,16 @@ fun WallpaperScreen(nav: Nav) {
     val theme by P.skyTheme.observe()
     val speed by P.skySpeed.observe()
     val stars by P.skyStars.observe()
+    val weatherOn by P.skyWeather.observe()
+    @Suppress("UNUSED_VARIABLE") val weatherJson by P.skyWeatherJson.observe()
     ScreenScaffold("Living sky", nav.back) {
         item {
             AndroidView(
                 factory = { SkyPreview(it) },
-                update = { v -> v.renderer.theme = theme; v.renderer.speed = speed / 100f; v.renderer.showStars = stars },
+                update = { v ->
+                    v.renderer.theme = theme; v.renderer.speed = speed / 100f; v.renderer.showStars = stars
+                    v.renderer.weather = if (weatherOn) Weather.current() else null
+                },
                 modifier = Modifier.fillMaxWidth().height(320.dp).clip(RoundedCornerShape(28.dp)),
             )
         }
@@ -237,6 +408,7 @@ fun WallpaperScreen(nav: Nav) {
                 PrefSlider(P.skySpeed, "Drift speed", 20..300) { "$it%" }
                 PrefSwitch(P.skyStars, "Twinkling stars at night")
                 PrefSwitch(P.skyParallax, "Tilt with the phone")
+                WeatherSwitch()
             }
         }
         item {
@@ -254,6 +426,25 @@ fun WallpaperScreen(nav: Nav) {
             ) { Text("Set as wallpaper") }
         }
         item { Note("Tap the wallpaper for a ripple. Living sky shifts colours at dawn (5 am), day (8 am), dusk (5 pm) and night (8 pm).") }
+    }
+}
+
+@Composable
+private fun WeatherSwitch() {
+    val ctx = LocalContext.current
+    val on by P.skyWeather.observe()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        P.skyWeather.value = granted
+        if (granted) Weather.refreshIfStale(ctx)
+    }
+    SwitchRow(
+        "Real weather and sunrise",
+        "Rain, snow and cloud from Open-Meteo, with dawn and dusk at your real sunrise and sunset. Sends a rough location (about 1 km) about once an hour.",
+        on,
+    ) { want ->
+        if (!want) P.skyWeather.value = false
+        else if (Weather.hasPermission(ctx)) { P.skyWeather.value = true; Weather.refreshIfStale(ctx) }
+        else launcher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 }
 
@@ -313,12 +504,71 @@ fun DeckScreen(nav: Nav) {
     }
 }
 
+// ---------------------------------------------------------------- Keyword alerts and hold
+
+@Composable
+private fun KeywordSection() {
+    val on by P.keywordsOn.observe()
+    val words by P.keywords.observe()
+    var editing by remember { mutableStateOf(false) }
+    Section("Keyword alerts") {
+        PrefSwitch(P.keywordsOn, "Keyword alerts", "An SOS buzz and a pulsing glow when a message contains one of your words")
+        if (on) {
+            Row2("Words", words.ifBlank { "None yet" }, onClick = { editing = true })
+            PrefSwitch(P.keywordsBreakDnd, "Even in Do Not Disturb", "Buzzes on the alarm channel, so it gets through if alarms are allowed")
+        }
+    }
+    if (editing) {
+        var text by remember { mutableStateOf(words) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("Keywords") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Separate words with commas. Whole words only, and capitals don't matter.")
+                    OutlinedTextField(text, { text = it }, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = { TextButton(onClick = { P.keywords.value = text.trim(); editing = false }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
+private fun HoldSection() {
+    val ctx = LocalContext.current
+    val on by P.holdOn.observe()
+    val apps by P.holdApps.observe()
+    val list = remember(apps) { apps.split(',').filter { it.isNotBlank() } }
+    var picking by remember { mutableStateOf(false) }
+    Section("Hold during work hours") {
+        PrefSwitch(P.holdOn, "Hold notifications", "Chosen apps stay quiet during these hours, then their notifications come back")
+        if (on) {
+            HourRow("From", P.holdStart)
+            HourRow("Until", P.holdEnd)
+            PrefSwitch(P.holdWeekdaysOnly, "Weekdays only")
+            list.forEach { pkg ->
+                Row2(Apps.label(ctx, pkg), null) {
+                    TextButton(onClick = { P.holdApps.value = (list - pkg).joinToString(",") }) { Text("Remove") }
+                }
+            }
+            Row2("Add an app", null, Icons.Rounded.Add, onClick = { picking = true })
+        }
+    }
+    if (on) Note("Held notifications are snoozed, not deleted. Android may still play the first sound before PlusLock can snooze it, so also silence that app's notifications if you need total quiet.")
+    if (picking) AppPickerDialog(onDismiss = { picking = false }) {
+        picking = false
+        if (it.pkg !in list) P.holdApps.value = (list + it.pkg).joinToString(",")
+    }
+}
+
 // ---------------------------------------------------------------- Haptics and read-aloud
 
 @Composable
 fun TricksScreen(nav: Nav) {
     val ctx = LocalContext.current
-    ScreenScaffold("Haptic signatures and read-aloud", nav.back) {
+    ScreenScaffold("Haptics, keywords and quiet", nav.back) {
         item {
             Section("Haptic signatures") {
                 PrefSwitch(P.hapticsOn, "Haptic signatures", "Each app can have its own vibration pattern")
@@ -333,6 +583,8 @@ fun TricksScreen(nav: Nav) {
                 }
             }
         }
+        item { KeywordSection() }
+        item { HoldSection() }
         item {
             Section("Read-aloud") {
                 PrefSwitch(P.whisperOn, "Read notifications aloud", "For the apps you choose in App profiles")

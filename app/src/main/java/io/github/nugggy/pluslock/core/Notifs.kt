@@ -15,6 +15,7 @@ object Notifs {
 
     const val ID_UPDATE = 100
     const val ID_CHARGE = 200
+    const val ID_BEDTIME = 201
     const val ID_UNSENT_BASE = 1000
 
     fun createChannels(ctx: Context) {
@@ -26,7 +27,7 @@ object Notifs {
         )
         nm.createNotificationChannel(
             NotificationChannel(CH_ALERTS, "Alerts", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Charge guard and unsent message alerts"
+                description = "Charge guard, bedtime and unsent message alerts"
             }
         )
     }

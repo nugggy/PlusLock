@@ -9,6 +9,9 @@ import org.json.JSONObject
  * rotation: 0 system default, 1 auto-rotate, 2 portrait, 3 landscape.
  * focusMinutes: doomscroll breaker limit, 0 for off.
  * edgeColour: 0 means use the app's own colour.
+ * dailyMinutes: daily time limit, 0 for none.
+ * fontScale: percent, 0 to leave the system size alone.
+ * keyboard: input method id, empty to leave it alone.
  */
 data class AppProfile(
     val pkg: String,
@@ -21,6 +24,11 @@ data class AppProfile(
     val haptic: String = "NONE",
     val whisper: Boolean = false,
     val focusMinutes: Int = 0,
+    val locked: Boolean = false,
+    val dailyMinutes: Int = 0,
+    val dnd: Boolean = false,
+    val fontScale: Int = 0,
+    val keyboard: String = "",
 ) {
     fun summary(): String {
         val parts = mutableListOf<String>()
@@ -36,6 +44,11 @@ data class AppProfile(
         if (haptic != "NONE") parts += "Haptic signature"
         if (whisper) parts += "Read aloud"
         if (focusMinutes > 0) parts += "Break after $focusMinutes min"
+        if (locked) parts += "Fingerprint lock"
+        if (dailyMinutes > 0) parts += "$dailyMinutes min a day"
+        if (dnd) parts += "Do Not Disturb"
+        if (fontScale > 0) parts += "Text $fontScale%"
+        if (keyboard.isNotEmpty()) parts += "Own keyboard"
         return parts.joinToString(" · ").ifEmpty { "No changes yet" }
     }
 
@@ -43,6 +56,8 @@ data class AppProfile(
         .put("volume", volume).put("keepAwake", keepAwake).put("rotation", rotation)
         .put("noGestures", noGestures).put("noLighting", noLighting).put("edgeColour", edgeColour)
         .put("haptic", haptic).put("whisper", whisper).put("focusMinutes", focusMinutes)
+        .put("locked", locked).put("dailyMinutes", dailyMinutes).put("dnd", dnd)
+        .put("fontScale", fontScale).put("keyboard", keyboard)
 
     companion object {
         fun fromJson(pkg: String, o: JSONObject) = AppProfile(
@@ -56,6 +71,11 @@ data class AppProfile(
             haptic = o.optString("haptic", "NONE"),
             whisper = o.optBoolean("whisper"),
             focusMinutes = o.optInt("focusMinutes"),
+            locked = o.optBoolean("locked"),
+            dailyMinutes = o.optInt("dailyMinutes"),
+            dnd = o.optBoolean("dnd"),
+            fontScale = o.optInt("fontScale"),
+            keyboard = o.optString("keyboard"),
         )
     }
 }

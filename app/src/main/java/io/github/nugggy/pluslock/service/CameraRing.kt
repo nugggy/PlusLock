@@ -14,15 +14,26 @@ import kotlin.math.max
 /** A battery ring drawn around the punch-hole selfie camera. */
 class CameraRing(private val svc: PlusAccessibilityService) {
     private var view: RingView? = null
+    private var label: EtaView? = null
     var level = 100
         private set
     var charging = false
         private set
+    private var etaMs = -1L
 
-    fun update(level: Int, charging: Boolean) {
+    fun update(level: Int, charging: Boolean, etaMs: Long = -1L) {
         this.level = level
         this.charging = charging
+        this.etaMs = etaMs
         view?.setState(level, charging)
+        label?.setText(etaText())
+    }
+
+    /** "1 h 20 m to full" while charging, or nothing. */
+    private fun etaText(): String {
+        if (!charging || !P.ringShowEta.value || etaMs <= 0) return ""
+        val m = (etaMs / 60_000L).coerceAtLeast(1)
+        return if (m >= 60) "${m / 60} h ${m % 60} m to full" else "$m m to full"
     }
 
     fun refresh() {
@@ -49,12 +60,26 @@ class CameraRing(private val svc: PlusAccessibilityService) {
         lp.x = (cx - size / 2f).toInt()
         lp.y = (cy - size / 2f).toInt()
         if (svc.addOverlay(v, lp)) view = v
+
+        if (P.ringShowEta.value) {
+            // Sits on the side the network speed readout isn't using.
+            val left = P.netSpeedOn.value && P.netSpeedSide.value == "RIGHT"
+            val l = EtaView(svc, alignRight = left)
+            val lw = svc.dp(120f).toInt()
+            val lh = svc.dp(20f).toInt()
+            val llp = svc.overlayParams(lw, lh, touchable = false)
+            llp.x = if (left) (cx - size / 2f - svc.dp(4f) - lw).toInt() else (cx + size / 2f + svc.dp(4f)).toInt()
+            llp.y = (cy - lh / 2f).toInt()
+            if (svc.addOverlay(l, llp)) { label = l; l.setText(etaText()) }
+        }
     }
 
     fun remove() {
         view?.stop()
         svc.removeOverlay(view)
         view = null
+        svc.removeOverlay(label)
+        label = null
     }
 }
 
@@ -109,5 +134,28 @@ private class RingView(ctx: Context, private val radius: Float, thickness: Float
             dot.color = arc.color
             canvas.drawCircle(cx + radius * kotlin.math.cos(a).toFloat(), cy + radius * kotlin.math.sin(a).toFloat(), arc.strokeWidth * 0.9f, dot)
         }
+    }
+}
+
+@SuppressLint("ViewConstructor")
+private class EtaView(ctx: Context, private val alignRight: Boolean) : View(ctx) {
+    private var text = ""
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF4BE38A.toInt()
+        textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 11f, resources.displayMetrics)
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+        setShadowLayer(3f * resources.displayMetrics.density, 0f, 0f, 0xCC000000.toInt())
+    }
+
+    fun setText(t: String) {
+        if (t == text) return
+        text = t
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (text.isEmpty()) return
+        paint.textAlign = if (alignRight) Paint.Align.RIGHT else Paint.Align.LEFT
+        canvas.drawText(text, if (alignRight) width.toFloat() else 0f, height / 2f + paint.textSize / 3, paint)
     }
 }
