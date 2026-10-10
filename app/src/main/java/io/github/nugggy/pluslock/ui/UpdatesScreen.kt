@@ -3,6 +3,7 @@ package io.github.nugggy.pluslock.ui
 import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,12 @@ fun UpdatesScreen(nav: Nav, resumeTick: Int) {
                 }
             }.onFailure { P.updateStatus.value = "Couldn't reach GitHub: ${it.message}" }
             busy = false
+            // Say what happened even when the status line reads the same as before.
+            val msg = r.fold(
+                { if (it != null && Updater.isNewer(it)) "PlusLock ${it.tag} is ready to install" else "You have the latest version" },
+                { "Couldn't reach GitHub. Check your connection." },
+            )
+            Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -93,7 +100,8 @@ fun UpdatesScreen(nav: Nav, resumeTick: Int) {
             ) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("PlusLock ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text(status.ifBlank { "Not checked yet" }, style = MaterialTheme.typography.bodyMedium)
+                    Text(if (busy && progress < 0f) "Checking..." else status.ifBlank { "Not checked yet" }, style = MaterialTheme.typography.bodyMedium)
+                    if (busy && progress < 0f) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 6.dp))
                     if (lastCheck > 0) Text(
                         "Last checked " + DateUtils.getRelativeTimeSpanString(lastCheck),
                         style = MaterialTheme.typography.bodySmall,
