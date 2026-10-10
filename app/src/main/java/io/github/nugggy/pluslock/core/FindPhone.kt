@@ -65,6 +65,7 @@ object FindPhone {
             this.from = from
             if (running) return@post
             running = true
+            Diag.log("find my phone", "started by $from" + if (test) " (test)" else "")
 
             val am = app.getSystemService(AudioManager::class.java)
             val nm = app.getSystemService(NotificationManager::class.java)
@@ -139,6 +140,7 @@ object FindPhone {
             handler.removeCallbacks(strobe)
             if (!running) return@post
             running = false
+            Diag.log("find my phone", "stopped, settings put back")
             runCatching { ringtone?.stop() }
             ringtone = null
             runCatching { app.getSystemService(VibratorManager::class.java).defaultVibrator.cancel() }

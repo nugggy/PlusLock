@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Policy
+import androidx.compose.material.icons.rounded.MedicalServices
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -175,6 +176,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
                 Module(Icons.Rounded.SystemUpdate, "Updates", "Install new versions from GitHub automatically", null) { nav.go(Screen.Updates) }
                 Module(Icons.Rounded.Terminal, "ADB extras", "A one-off step that unlocks a few more features", null) { nav.go(Screen.Adb) }
                 Module(Icons.Rounded.SettingsBackupRestore, "Back up and restore", "Save all your settings to a file", null) { nav.go(Screen.Backup) }
+                Module(Icons.Rounded.MedicalServices, "Diagnostics", "Check what works on this phone and copy a report", null) { nav.go(Screen.Diagnostics) }
                 Module(Icons.Rounded.Policy, "Legal and about", "Privacy policy, terms of use, licences and safety notes", null) { nav.go(Screen.Legal()) }
             }
         }

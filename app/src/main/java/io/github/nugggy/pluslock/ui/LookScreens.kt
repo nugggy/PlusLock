@@ -45,6 +45,7 @@ fun LookScreen(nav: Nav, resumeTick: Int) {
     val net by P.netSpeedOn.observe()
     val clock by P.lockClockOn.observe()
     val clockColour by P.lockClockColour.observe()
+    val clockMode by P.lockClockColourMode.observe()
     val secure = remember(resumeTick) { SystemSettings.hasSecure(ctx) }
     // Bumped after each status bar change so the switches re-read the system value.
     var bump by remember { mutableIntStateOf(0) }
@@ -58,12 +59,20 @@ fun LookScreen(nav: Nav, resumeTick: Int) {
     ScreenScaffold("Look and feel", nav.back) {
         item {
             Section("Camera island") {
-                PrefSwitch(P.islandOn, "Camera island", "A pill around the selfie camera for music, calls, timers and charging. Tap it to expand.")
+                PrefSwitch(P.islandOn, "Camera island", "A pill around the selfie camera for music, calls, messages, timers, downloads, directions and charging. Tap it to expand.")
                 if (island) {
                     PrefSwitch(P.islandMedia, "Music and videos", "With play, pause and skip when expanded")
                     PrefSwitch(P.islandCalls, "Calls")
                     PrefSwitch(P.islandTimers, "Timers and stopwatches")
                     PrefSwitch(P.islandCharging, "Charging", "Shows the level and charging speed for a few seconds when you plug in")
+                    PrefSwitch(P.islandPeek, "Message peeks", "Who's messaging, for a few seconds. Tap to open the chat.")
+                    PrefIntChoice(P.islandPeekSeconds, "Peek for", linkedMapOf(3 to "3 seconds", 4 to "4 seconds", 6 to "6 seconds", 10 to "10 seconds"))
+                    PrefSwitch(P.islandProgress, "Downloads and uploads", "A progress ring while something downloads")
+                    PrefSwitch(P.islandNav, "Directions", "The next turn from Google Maps and other navigation apps")
+                    PrefSwitch(P.islandGlow, "Glowing rim", "In the album art's or app's colour")
+                    PrefSwitch(P.islandGestures, "Swipe and hold", "Swipe the pill sideways to skip tracks, hold it to open the app")
+                    PrefSlider(P.islandSize, "Size", 80..140) { "$it%" }
+                    PrefIntChoice(P.islandCollapseSeconds, "Close the expanded island after", linkedMapOf(4 to "4 seconds", 6 to "6 seconds", 10 to "10 seconds", 20 to "20 seconds"))
                 }
             }
         }
@@ -103,13 +112,32 @@ fun LookScreen(nav: Nav, resumeTick: Int) {
             Section("Lock screen clock") {
                 PrefSwitch(P.lockClockOn, "Custom lock screen clock", "Drawn over the lock screen while it's showing")
                 if (clock) {
-                    PrefChoice(P.lockClockStyle, "Style", LockClock.styles)
+                    PrefChoice(P.lockClockStyle, "Clock face", LockClock.styles)
                     PrefChoice(P.lockClockFont, "Font", LockClock.fonts)
-                    ColourRow("Colour", clockColour) { P.lockClockColour.value = it }
+                    PrefChoice(P.lockClockColourMode, "Colour", linkedMapOf(
+                        "CUSTOM" to "My colour", "WALLPAPER" to "Match the wallpaper", "GRADIENT" to "Two-colour fade", "RAINBOW" to "Rainbow, slowly shifting",
+                    ))
+                    if (clockMode != "WALLPAPER" && clockMode != "RAINBOW") ColourRow("Colour", clockColour) { P.lockClockColour.value = it }
+                    if (clockMode == "GRADIENT" || P.lockClockStyle.observe().value == "SPLIT" || P.lockClockStyle.observe().value == "ANALOGUE")
+                        ColourRow("Second colour", P.lockClockColour2.observe().value) { P.lockClockColour2.value = it }
+                    PrefSwitch(P.lockClockGlow, "Glow")
+                    PrefSlider(P.lockClockOpacity, "Brightness", 30..100) { "$it%" }
                     PrefSlider(P.lockClockSize, "Size", 50..160) { "$it%" }
                     PrefSlider(P.lockClockPosition, "Position", 0..100) { "$it% down" }
-                    PrefSwitch(P.lockClockDate, "Show the date")
+                    PrefChoice(P.lockClockAlign, "Line up", linkedMapOf("LEFT" to "Left", "CENTRE" to "Centre", "RIGHT" to "Right"))
+                    PrefSwitch(P.lockClockSeconds, "Seconds")
                 }
+            }
+        }
+        if (clock) item {
+            Section("Under the clock") {
+                PrefSwitch(P.lockClockDate, "Date")
+                PrefChoice(P.lockClockDateFormat, "Date style", linkedMapOf("FULL" to "Saturday 11 October", "SHORT" to "Sat 11 Oct", "NUMERIC" to "11/10/2026"))
+                PrefSwitch(P.lockClockBattery, "Battery level")
+                PrefSwitch(P.lockClockAlarm, "Next alarm")
+                PrefSwitch(P.lockClockWeather, "Weather", "Needs real weather switched on for the Living sky wallpaper")
+                PrefSwitch(P.lockClockUnread, "How many notifications are waiting")
+                PrefSwitch(P.lockClockMusic, "What's playing")
             }
         }
         if (clock) item {

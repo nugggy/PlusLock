@@ -146,16 +146,19 @@ class PlusAccessibilityService : AccessibilityService() {
                     panel.hide(); volumePanel.hide(); island.remove()
                     lighting.hide(immediate = true)
                     chargeFx.onScreenOff()
+                    routines.onScreenOff()
                     if (P.ringWhere.value != "ALL") ring.refresh()
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     motion.refresh(); netSpeed.refresh(); island.refresh()
                     chargeFx.onScreenOn()
+                    routines.onScreenOn()
                     if (P.ringWhere.value != "ALL") ring.refresh()
                 }
                 Intent.ACTION_USER_PRESENT -> {
                     guard.onUnlocked()
                     chargeFx.onUnlocked()
+                    routines.onUnlocked()
                     if (P.ringWhere.value != "ALL") ring.refresh()
                 }
             }

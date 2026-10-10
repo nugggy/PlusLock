@@ -75,6 +75,15 @@
             android:theme="@style/Theme.PlusLock.Reply" />
 
         <activity
+            android:name=".ui.NoteActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize|stateVisible"
+            android:theme="@style/Theme.PlusLock.Reply" />
+
+        <activity
             android:name=".ui.WakeActivity"
             android:exported="false"
             android:excludeFromRecents="true"

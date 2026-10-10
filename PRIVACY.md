@@ -2,7 +2,7 @@
 
 Pimp my Phone ("the app") is made by nugggy, an individual developer. This policy explains what the app does with your information.
 
-Last updated: 11 October 2026
+Last updated: 12 October 2026
 
 ## The short version
 
@@ -44,8 +44,19 @@ Location is only used if you turn on Real weather and sunrise for the Living sky
 - **Screen time:** how long you use each app, for the screen time dashboard and app time limits.
 - **Battery log:** your battery level and temperature over the last two days, for the battery health chart.
 - **Settings:** everything you set up, including names you add under People, your keywords and your find my phone codeword.
+- **Quick note:** whatever you type in the side panel's quick note.
+- **App volumes:** which apps you've turned up, down or muted, and by how much.
+- **Diagnostics log:** a short list of what the app did recently (for example "woke the screen" or "volume panel rebuilt"), kept in memory only and cleared when the app restarts.
 
 None of this leaves your phone unless you export it yourself.
+
+### Diagnostics reports
+
+The Diagnostics screen can copy or share a report. It lists your phone model, Android version, which permissions are allowed, which features are on and the recent diagnostics log. It doesn't include notification text, contacts or your codeword. It only goes where you choose to send it.
+
+### What other people might see
+
+Some features show information on screen, including over the lock screen: edge lighting bubbles, camera island message peeks, and the lock screen clock's music and unread count. They follow your phone's lock screen notification settings where Android provides them, but anyone looking at your screen could see them. Switch them off if that matters to you.
 
 ### Bluetooth and other permissions
 

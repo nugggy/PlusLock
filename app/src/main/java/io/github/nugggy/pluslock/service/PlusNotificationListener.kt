@@ -21,6 +21,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
 import io.github.nugggy.pluslock.core.Apps
+import io.github.nugggy.pluslock.core.Diag
 import io.github.nugggy.pluslock.core.FindPhone
 import io.github.nugggy.pluslock.core.Haptics
 import io.github.nugggy.pluslock.core.Hours
@@ -57,7 +58,18 @@ class PlusNotificationListener : NotificationListenerService() {
         Prefs.init(this)
     }
 
+    companion object {
+        /** Notifications showing now, not counting ongoing ones. For the lock screen clock. */
+        @Volatile var unreadCount = 0
+            private set
+    }
+
+    private fun countUnread() {
+        unreadCount = runCatching { activeNotifications.count { !it.isOngoing && it.packageName != packageName } }.getOrDefault(0)
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {
+        countUnread()
         if (sbn.packageName == packageName) return
         IslandState.onPosted(this, sbn)
         val n = sbn.notification
@@ -113,6 +125,8 @@ class PlusNotificationListener : NotificationListenerService() {
         val latest = entries.maxByOrNull { it.time } ?: entries.last()
         val fresh = entries.filter { it.msgId in newIds }.ifEmpty { listOf(latest) }
 
+        PlusAccessibilityService.instance?.routines?.onNotification(pkg)
+
         // Find my phone: the secret codeword in a new message sets the phone ringing.
         fresh.firstOrNull { FindPhone.matches(it.title, "${it.title} ${it.body}") }?.let {
             FindPhone.start(this, it.title.ifBlank { app })
@@ -122,6 +136,7 @@ class PlusNotificationListener : NotificationListenerService() {
         val rule = LightingRules.find(latest.title, latest.body)
         val vip = rule?.vip == true
         val urgent = P.keywordsOn.value && fresh.any { matchesKeyword("${it.title} ${it.body}") }
+        if (urgent) Diag.log("keywords", "matched a message in $app")
 
         // Held apps go quiet until the end of the hold window, then come back on their own.
         if (isHeld(pkg) && !vip && !(urgent && P.keywordsBreakDnd.value)) {
@@ -176,6 +191,7 @@ class PlusNotificationListener : NotificationListenerService() {
             lit[sbn.key] = colour
             scheduleReminder()
         }
+        if (!secret && (lightingAllowed || breakThrough)) IslandState.peek(this, pkg, shownTitle, shownText, n.contentIntent, colourFor(pkg, n, profile?.edgeColour ?: 0))
         if (vip && rule?.haptic.orEmpty().let { it.isNotEmpty() && it != "NONE" }) {
             Haptics.play(this, rule!!.haptic, app, urgent = dnd)
         } else if (urgent && (!dnd || breakThrough)) {
@@ -195,6 +211,7 @@ class PlusNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
+        countUnread()
         seenMessages.remove(sbn.key)
         seenKeys.remove(sbn.key)
         unseen.remove(sbn.key)

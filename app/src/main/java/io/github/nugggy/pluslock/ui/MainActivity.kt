@@ -44,6 +44,7 @@ sealed class Screen {
     data object VolumePanel : Screen()
     data object PlayWallpaper : Screen()
     data class Legal(val doc: String = "") : Screen()
+    data object Diagnostics : Screen()
 
     companion object {
         fun fromExtra(s: String?): Screen? = when (s) {
@@ -117,6 +118,7 @@ class MainActivity : ComponentActivity() {
                             Screen.VolumePanel -> VolumePanelScreen(nav)
                             Screen.PlayWallpaper -> PlayWallpaperScreen(nav)
                             is Screen.Legal -> LegalScreen(nav, screen.doc)
+                            Screen.Diagnostics -> DiagnosticsScreen(nav)
                         }
                     }
                 }

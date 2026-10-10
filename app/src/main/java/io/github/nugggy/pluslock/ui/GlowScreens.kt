@@ -549,14 +549,14 @@ fun VolumePanelScreen(nav: Nav) {
         }
         item {
             Section("Which volumes") {
-                Note("Pick the sliders you want. The one the buttons move always shows. Tap More on the panel for the rest.")
+                Note("Pick the sliders you want. The one the buttons move always shows. Tap the dots on the panel for the rest.")
                 io.github.nugggy.pluslock.service.volumeStreams.forEach { (key, label) ->
                     SwitchRow(label, null, key in chosen) { on ->
                         val next = io.github.nugggy.pluslock.service.volumeStreams.keys.filter { k -> if (k == key) on else k in chosen }
                         P.volPanelStreams.value = next.joinToString(",")
                     }
                 }
-                PrefSwitch(P.volPanelExpanded, "Always show them all", "No More button: every slider you picked shows at once")
+                PrefSwitch(P.volPanelExpanded, "Always show them all", "No need to tap the dots: every slider you picked shows at once")
                 PrefChoice(P.volPanelButtons, "The volume buttons control", linkedMapOf(
                     "AUTO" to "Media while something plays, otherwise the ringtone",
                     "MUSIC" to "Always media",
@@ -564,6 +564,7 @@ fun VolumePanelScreen(nav: Nav) {
                 ))
             }
         }
+        item { AppVolumesSection() }
         item {
             Section("Look") {
                 PrefChoice(P.volPanelStyle, "Style", linkedMapOf(
@@ -598,6 +599,25 @@ fun VolumePanelScreen(nav: Nav) {
         item { Note("Works with the screen on. During a call the buttons move the call volume.") }
         item { BoostSection() }
     }
+}
+
+@Composable
+private fun AppVolumesSection() {
+    val ctx = LocalContext.current
+    val json by P.appVolumesJson.observe()
+    val saved = remember(json) { io.github.nugggy.pluslock.core.AppAudio.levels() }
+    Section("Volume for each app") {
+        PrefSwitch(P.volPanelApps, "Apps in the full panel", "Tap the dots on the panel to see every app making sound, each with its own slider")
+        if (saved.isEmpty()) Row2("No app volumes set yet", "Set them from the panel while the app is playing")
+        saved.forEach { (pkg, pct) ->
+            Row2(Apps.label(ctx, pkg), if (pct == 0) "Muted" else "$pct%") {
+                TextButton(onClick = { io.github.nugggy.pluslock.core.AppAudio.setLevel(pkg, 100) }) { Text("Reset") }
+            }
+        }
+        if (saved.isNotEmpty()) Row2("Reset all", null, onClick = { io.github.nugggy.pluslock.core.AppAudio.resetAll() })
+    }
+    Note("Android only lets Pimp my Phone change an app's volume if the app shares its sound with equaliser apps. Most music and podcast apps do. " +
+        "For apps that don't, such as some video apps, the panel shows Play and Pause instead. Tap an app's name to mute it.")
 }
 
 @Composable

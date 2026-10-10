@@ -16,6 +16,8 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import io.github.nugggy.pluslock.core.AppAudio
+import io.github.nugggy.pluslock.core.Diag
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.SoundMode
 import kotlin.math.roundToInt
@@ -110,7 +112,7 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
         lp.gravity = (if (right) Gravity.END else Gravity.START) or Gravity.CENTER_VERTICAL
         lp.x = svc.dp(P.volPanelMargin.value.toFloat()).toInt()
         lp.y = b.height() * P.volPanelOffset.value / 100
-        if (!svc.addOverlay(v, lp)) return null
+        if (!svc.addOverlay(v, lp)) { Diag.log("volume panel", "couldn't add the panel window"); return null }
         view = v
         return v
     }
@@ -120,12 +122,18 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
      * because some phones don't resize an overlay window when its content grows.
      */
     private fun toggleExpanded() {
-        val old = view ?: return
+        val old = view ?: run { Diag.log("volume panel", "dots tapped but no panel showing"); return }
         expanded = !expanded
-        svc.removeOverlay(old)
-        view = null
-        create(old.main)?.refresh()
-        bumpHide()
+        Diag.log("volume panel", if (expanded) "expanding" else "collapsing")
+        // Next frame: removing a window from inside its own touch handling can upset some phones.
+        svc.handler.post {
+            svc.removeOverlay(old)
+            if (view === old) view = null
+            val v = create(old.main)
+            Diag.log("volume panel", if (v != null) "rebuilt, " + (if (expanded) "all volumes" else "compact") else "rebuild failed")
+            v?.refresh()
+            bumpHide()
+        }
     }
 
     /** Shows the panel from settings so changes can be seen straight away. */
@@ -157,6 +165,8 @@ private class PanelRoot(
 ) : LinearLayout(ctx) {
     private val d = resources.displayMetrics.density
     private val sliders = mutableListOf<VSlider>()
+    private var dots: TextView? = null
+    private var downOnDots = false
     private val horizontal = P.volPanelLayout.value == "HORIZONTAL"
     private val extra = LinearLayout(ctx).apply {
         orientation = if (horizontal) VERTICAL else HORIZONTAL
@@ -202,21 +212,97 @@ private class PanelRoot(
         row.addView(extra)
         addView(row)
 
-        // A proper button with a big target, rather than three small dots.
-        if (extra.childCount > 0 && !P.volPanelExpanded.value) addView(TextView(ctx).apply {
-            text = if (expanded) "Less" else "More"
-            setTextColor(textColour); textSize = 12f; gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-            minHeight = (40 * d).toInt()
-            setPadding((10 * d).toInt(), (8 * d).toInt(), (10 * d).toInt(), (8 * d).toInt())
-            background = GradientDrawable().apply { cornerRadius = 20 * d; setColor(if (light) 0x14000000 else 0x22FFFFFF) }
-            contentDescription = if (expanded) "Show fewer volumes" else "Show all volumes"
-            setOnClickListener {
-                performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                onTouch(); onToggle()
+        if (expanded && P.volPanelApps.value) addView(appsSection())
+
+        // The dots. Taps are caught in dispatchTouchEvent below, over a generous area,
+        // so they work even if the phone is fussy about clicks in overlay windows.
+        if (extra.childCount > 0 && !P.volPanelExpanded.value) {
+            val dv = TextView(ctx).apply {
+                text = "•  •  •"
+                setTextColor(if (light) 0xAA000000.toInt() else 0xCCFFFFFF.toInt()); textSize = 18f; gravity = Gravity.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+                minHeight = (44 * d).toInt()
+                contentDescription = if (expanded) "Show fewer volumes" else "Show every volume and app"
+                if (expanded) background = GradientDrawable().apply { cornerRadius = 22 * d; setColor(if (light) 0x14000000 else 0x22FFFFFF) }
             }
-        }, LayoutParams(-1, -2).apply { topMargin = (10 * d).toInt() })
+            dots = dv
+            addView(dv, LayoutParams(-1, -2).apply { topMargin = (6 * d).toInt() })
+        }
         refresh()
+    }
+
+    private fun overDots(e: MotionEvent): Boolean {
+        val v = dots ?: return false
+        val slop = 12 * d
+        return e.x >= v.left - slop && e.x <= v.right + slop && e.y >= v.top - slop && e.y <= v.bottom + slop
+    }
+
+    override fun dispatchTouchEvent(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downOnDots = overDots(e)
+                Diag.log("volume panel", "touch at " + e.x.roundToInt() + "," + e.y.roundToInt() + (if (downOnDots) " on the dots" else ""))
+                if (downOnDots) { dots?.alpha = 0.5f; return true }
+            }
+            MotionEvent.ACTION_MOVE -> if (downOnDots) return true
+            MotionEvent.ACTION_UP -> if (downOnDots) {
+                downOnDots = false
+                dots?.alpha = 1f
+                if (overDots(e)) {
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    onTouch(); onToggle()
+                }
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> if (downOnDots) { downOnDots = false; dots?.alpha = 1f; return true }
+            MotionEvent.ACTION_OUTSIDE -> Diag.log("volume panel", "touch outside the panel")
+        }
+        return super.dispatchTouchEvent(e)
+    }
+
+    /** One row per app playing sound, with its own volume where Android allows it. */
+    private fun appsSection(): View {
+        val dim = if (light) 0x99000000.toInt() else 0x99FFFFFF.toInt()
+        val box = LinearLayout(context).apply { orientation = VERTICAL; setPadding(0, (12 * d).toInt(), 0, 0) }
+        box.addView(TextView(context).apply {
+            text = "Apps"; textSize = 11f; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(dim)
+            setPadding((4 * d).toInt(), 0, 0, (4 * d).toInt())
+        })
+        val apps = AppAudio.playing(context)
+        if (apps.isEmpty()) box.addView(TextView(context).apply {
+            text = "Nothing playing"; textSize = 12f; setTextColor(dim)
+            setPadding((4 * d).toInt(), 0, 0, (4 * d).toInt())
+        })
+        apps.take(4).forEachIndexed { i, a ->
+            val row = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, (4 * d).toInt(), 0, (4 * d).toInt()) }
+            val name = TextView(context).apply {
+                text = a.label; textSize = 12f; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(textColour); setPadding((4 * d).toInt(), 0, (8 * d).toInt(), 0)
+            }
+            row.addView(name, LayoutParams((84 * d).toInt(), -2))
+            if (a.adjustable) {
+                val colour = if (P.volPanelRainbow.value) rainbow[(i + 2) % rainbow.size] else P.volPanelColour.value
+                val bar = AppBar(context, a.pkg, colour, light) { onTouch() }
+                name.setOnClickListener { AppAudio.toggleMute(a.pkg); bar.invalidate(); onTouch() }
+                row.addView(bar, LayoutParams(0, (30 * d).toInt(), 1f))
+            } else {
+                // No way to change this app's volume, so offer play and pause instead.
+                row.addView(TextView(context).apply {
+                    text = if (a.playing) "Pause" else "Play"
+                    textSize = 12f; gravity = Gravity.CENTER; setTextColor(textColour); typeface = Typeface.DEFAULT_BOLD
+                    background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(if (light) 0x14000000 else 0x22FFFFFF) }
+                    setPadding((12 * d).toInt(), (6 * d).toInt(), (12 * d).toInt(), (6 * d).toInt())
+                    setOnClickListener {
+                        val tc = a.controller?.transportControls
+                        if (text == "Pause") { tc?.pause(); text = "Play" } else { tc?.play(); text = "Pause" }
+                        onTouch()
+                    }
+                }, LayoutParams(0, -2, 1f))
+            }
+            box.addView(row, LayoutParams((260 * d).toInt(), -2))
+        }
+        return box
     }
 
     private fun column(stream: Int, index: Int) = LinearLayout(context).apply {
@@ -326,6 +412,53 @@ private class VSlider(
                 val f = if (horizontal) (e.x / width).coerceIn(0f, 1f) else (1 - e.y / height).coerceIn(0f, 1f)
                 set((min + f * (max - min)).roundToInt())
                 onChange()
+            }
+        }
+        return true
+    }
+}
+
+/** A sideways volume bar for one app: 0 to 150%, with a tick at its normal volume. */
+@SuppressLint("ViewConstructor")
+private class AppBar(ctx: Context, private val pkg: String, colour: Int, light: Boolean, private val onChange: () -> Unit) : View(ctx) {
+    private val d = resources.displayMetrics.density
+    private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (light) 0x1F000000 else 0x26FFFFFF }
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colour }
+    private val mark = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (light) 0x55000000 else 0x66FFFFFF }
+    private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 11 * d; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.RIGHT }
+    private var level = AppAudio.level(pkg)
+    private var dragging = false
+    private val rect = RectF()
+
+    override fun onDraw(c: Canvas) {
+        if (!dragging) level = AppAudio.level(pkg)
+        rect.set(0f, 0f, width.toFloat(), height.toFloat())
+        val r = height / 2f
+        c.drawRoundRect(rect, r, r, track)
+        val f = level / 150f
+        c.save(); c.clipRect(0f, 0f, width * f, height.toFloat()); c.drawRoundRect(rect, r, r, fill); c.restore()
+        val x100 = width * 100f / 150f
+        c.drawRect(x100 - 1 * d, height * 0.2f, x100 + 1 * d, height * 0.8f, mark)
+        label.color = if (f > 0.8f) 0xFF0A0C12.toInt() else Color.WHITE
+        c.drawText(if (level == 0) "Muted" else "$level%", width - 8 * d, height / 2f + label.textSize / 3, label)
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                dragging = true
+                parent?.requestDisallowInterceptTouchEvent(true)
+                var v = ((e.x / width).coerceIn(0f, 1f) * 150).roundToInt()
+                if (v in 93..107) v = 100 // snaps to normal
+                v = (v / 5) * 5
+                if (v != level) { level = v; invalidate() }
+                onChange()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                dragging = false
+                AppAudio.setLevel(pkg, level)
+                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
             }
         }
         return true

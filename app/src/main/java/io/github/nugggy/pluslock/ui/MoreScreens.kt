@@ -60,6 +60,10 @@ import io.github.nugggy.pluslock.data.RoutineAction
 import io.github.nugggy.pluslock.data.RoutineActionType
 import io.github.nugggy.pluslock.data.Routines
 import io.github.nugggy.pluslock.data.Trigger
+import io.github.nugggy.pluslock.data.ConditionType
+import io.github.nugggy.pluslock.core.Haptics
+import androidx.compose.runtime.LaunchedEffect
+import io.github.nugggy.pluslock.data.RoutineCondition
 import io.github.nugggy.pluslock.data.TriggerType
 import io.github.nugggy.pluslock.data.UsageStore
 import io.github.nugggy.pluslock.service.AppGuard
@@ -120,6 +124,8 @@ fun RoutineEditScreen(nav: Nav, id: String) {
     var addAction by remember { mutableStateOf(false) }
     var argFor by remember { mutableStateOf<RoutineActionType?>(null) }
     var pickTriggerApp by remember { mutableStateOf(false) }
+    var addCondition by remember { mutableStateOf(false) }
+    var condArgFor by remember { mutableStateOf<ConditionType?>(null) }
 
     ScreenScaffold(r.name.ifBlank { "Routine" }, nav.back) {
         item {
@@ -135,6 +141,19 @@ fun RoutineEditScreen(nav: Nav, id: String) {
             }
         }
         item {
+            Section("Only if") {
+                if (r.conditions.isEmpty()) Row2("Always", "Add a condition to narrow it down")
+                r.conditions.forEachIndexed { i, c ->
+                    Row2(Routines.describe(c), null) {
+                        IconButton(onClick = { save(r.copy(conditions = r.conditions.filterIndexed { j, _ -> j != i })) }) {
+                            Icon(Icons.Rounded.Close, "Remove")
+                        }
+                    }
+                }
+                Row2("Add a condition", null, Icons.Rounded.Add, onClick = { addCondition = true })
+            }
+        }
+        item {
             Section("Do this") {
                 r.actions.forEachIndexed { i, a ->
                     Row2(Routines.describe(ctx, a), null) {
@@ -144,6 +163,7 @@ fun RoutineEditScreen(nav: Nav, id: String) {
                     }
                 }
                 Row2("Add an action", null, Icons.Rounded.Add, onClick = { addAction = true })
+                if (r.actions.size > 1) Note("Actions run from top to bottom. Add a Wait to space them out.")
             }
         }
         if (r.actions.any { it.type == RoutineActionType.BRIGHTNESS } && !Status.writeSettings(ctx)) item {
@@ -177,12 +197,29 @@ fun RoutineEditScreen(nav: Nav, id: String) {
     if (pickTrigger) ChoiceDialog("When", TriggerType.entries.associate { it.name to it.label }, r.trigger.type.name, { pickTrigger = false }) {
         pickTrigger = false
         val t = TriggerType.valueOf(it)
-        save(r.copy(trigger = Trigger(t, if (t == TriggerType.TIME) "07:00" else "")))
+        save(r.copy(trigger = Trigger(t, when (t) {
+            TriggerType.TIME -> "07:00"
+            TriggerType.BATTERY_BELOW -> "20"
+            TriggerType.BATTERY_ABOVE -> "80"
+            else -> ""
+        })))
         if (t == TriggerType.APP_OPEN) pickTriggerApp = true
     }
     if (pickTriggerApp) AppPickerDialog(onDismiss = { pickTriggerApp = false }) {
         pickTriggerApp = false
-        save(r.copy(trigger = Trigger(TriggerType.APP_OPEN, it.pkg)))
+        save(r.copy(trigger = Trigger(r.trigger.type, it.pkg)))
+    }
+    if (addCondition) ChoiceDialog("Only if", ConditionType.entries.associate { it.name to it.label }, "", { addCondition = false }) {
+        addCondition = false
+        val t = ConditionType.valueOf(it)
+        if (t == ConditionType.TIME_BETWEEN || t == ConditionType.BATTERY_BELOW) condArgFor = t
+        else save(r.copy(conditions = r.conditions + RoutineCondition(t)))
+    }
+    condArgFor?.let { t ->
+        ConditionArgDialog(t, onDismiss = { condArgFor = null }) { arg ->
+            condArgFor = null
+            save(r.copy(conditions = r.conditions + RoutineCondition(t, arg)))
+        }
     }
     if (addAction) ChoiceDialog("Add an action", RoutineActionType.entries.associate { it.name to it.label }, "", { addAction = false }) {
         addAction = false
@@ -202,6 +239,12 @@ private fun TriggerDetail(r: Routine, save: (Routine) -> Unit, pickApp: () -> Un
     val t = r.trigger
     when (t.type) {
         TriggerType.APP_OPEN -> Row2("App", if (t.arg.isBlank()) "Choose one" else Apps.label(ctx, t.arg), onClick = pickApp)
+        TriggerType.NOTIFICATION -> {
+            Row2("App", if (t.arg.isBlank()) "Any app" else Apps.label(ctx, t.arg), onClick = pickApp)
+            if (t.arg.isNotBlank()) Row2("Any app instead", null, onClick = { save(r.copy(trigger = t.copy(arg = ""))) })
+        }
+        TriggerType.BATTERY_BELOW, TriggerType.BATTERY_ABOVE ->
+            SliderRow("Level", t.arg.toIntOrNull() ?: 20, 5..100, { "$it%" }) { save(r.copy(trigger = t.copy(arg = it.toString()))) }
         TriggerType.BT_ON, TriggerType.BT_OFF -> BluetoothRow(t.arg) { save(r.copy(trigger = t.copy(arg = it))) }
         TriggerType.TIME -> {
             val (time, weekdays) = Routines.timeArg(t.arg)
@@ -243,7 +286,8 @@ private fun BluetoothRow(selected: String, onPick: (String) -> Unit) {
 private fun ActionArgDialog(type: RoutineActionType, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     when (type) {
         RoutineActionType.OPEN_APP -> AppPickerDialog(onDismiss = onDismiss) { onDone(it.pkg) }
-        RoutineActionType.MEDIA_VOLUME, RoutineActionType.BRIGHTNESS -> {
+        RoutineActionType.MEDIA_VOLUME, RoutineActionType.BRIGHTNESS, RoutineActionType.RING_VOLUME,
+        RoutineActionType.NOTIFICATION_VOLUME, RoutineActionType.ALARM_VOLUME -> {
             var v by remember { mutableFloatStateOf(50f) }
             AlertDialog(
                 onDismissRequest = onDismiss,
@@ -254,12 +298,59 @@ private fun ActionArgDialog(type: RoutineActionType, onDismiss: () -> Unit, onDo
             )
         }
         RoutineActionType.SOUND_MODE -> ChoiceDialog(type.label, linkedMapOf("RING" to "Ring", "VIBRATE" to "Vibrate", "SILENT" to "Silent"), "", onDismiss, onDone)
-        RoutineActionType.DND, RoutineActionType.TORCH, RoutineActionType.CAFFEINE ->
+        RoutineActionType.DND, RoutineActionType.TORCH, RoutineActionType.CAFFEINE, RoutineActionType.VOLUME_BOOST,
+        RoutineActionType.EDGE_LIGHTING, RoutineActionType.EXTRA_DIM, RoutineActionType.ROTATION ->
             ChoiceDialog(type.label, linkedMapOf("ON" to "On", "OFF" to "Off"), "", onDismiss, onDone)
         RoutineActionType.PAUSE_LIGHTING -> ChoiceDialog(type.label,
             linkedMapOf("30" to "30 minutes", "60" to "1 hour", "120" to "2 hours", "480" to "8 hours", "0" to "Resume instead"), "", onDismiss, onDone)
         RoutineActionType.GESTURE -> ChoiceDialog(type.label,
             GestureAction.entries.filter { it != GestureAction.NONE && it != GestureAction.LAUNCH_APP }.associate { it.name to it.label }, "", onDismiss, onDone)
+        RoutineActionType.VIBRATE -> ChoiceDialog(type.label, Haptics.presets.filterKeys { it != "NONE" }, "", onDismiss, onDone)
+        RoutineActionType.BLINK_TORCH -> LaunchedEffect(Unit) { onDone("") }
+        RoutineActionType.WAIT -> ChoiceDialog(type.label,
+            linkedMapOf("2" to "2 seconds", "5" to "5 seconds", "10" to "10 seconds", "30" to "30 seconds", "60" to "1 minute", "300" to "5 minutes", "900" to "15 minutes"), "", onDismiss, onDone)
+        RoutineActionType.MESSAGE -> {
+            var text by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text(type.label) },
+                text = { OutlinedTextField(text, { text = it }, label = { Text("Message") }, modifier = Modifier.fillMaxWidth()) },
+                confirmButton = { TextButton(onClick = { onDone(text.trim()) }) { Text("Add") } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConditionArgDialog(type: ConditionType, onDismiss: () -> Unit, onDone: (String) -> Unit) {
+    when (type) {
+        ConditionType.TIME_BETWEEN -> {
+            var from by remember { mutableFloatStateOf(22f) }
+            var to by remember { mutableFloatStateOf(7f) }
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text(type.label) },
+                text = {
+                    Column {
+                        SliderRow("From", from.toInt(), 0..23, { "%02d:00".format(it) }) { from = it.toFloat() }
+                        SliderRow("Until", to.toInt(), 0..23, { "%02d:00".format(it) }) { to = it.toFloat() }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { onDone("${from.toInt()}-${to.toInt()}") }) { Text("Add") } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+            )
+        }
+        else -> {
+            var v by remember { mutableFloatStateOf(30f) }
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text(type.label) },
+                text = { SliderRow("Below", v.toInt(), 5..100, { "$it%" }) { v = it.toFloat() } },
+                confirmButton = { TextButton(onClick = { onDone(v.toInt().toString()) }) { Text("Add") } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+            )
+        }
     }
 }
 
@@ -287,8 +378,38 @@ fun PanelScreen(nav: Nav) {
     ScreenScaffold("Side panel", nav.back) {
         item {
             Section("Side panel") {
-                Row2("Open it from an edge gesture", "Set any edge swipe or back tap to Side panel", onClick = { nav.go(Screen.Gestures) })
+                Row2("Open it from an edge gesture", "Set any edge swipe or back tap to Side panel, Calculator or Quick note", onClick = { nav.go(Screen.Gestures) })
                 PrefChoice(P.panelSide, "Slides in from", mapOf("RIGHT" to "The right", "LEFT" to "The left"))
+            }
+        }
+        item {
+            val sections by P.panelSections.observe()
+            val on = sections.split(',').filter { it.isNotBlank() }
+            Section("What's in the panel") {
+                io.github.nugggy.pluslock.service.panelSections.forEach { (key, label) ->
+                    SwitchRow(label, null, key in on) { want ->
+                        P.panelSections.value = io.github.nugggy.pluslock.service.panelSections.keys.filter { k -> if (k == key) want else k in on }.joinToString(",")
+                    }
+                }
+            }
+        }
+        item {
+            val toggles by P.panelToggles.observe()
+            val on = toggles.split(',').filter { it.isNotBlank() }
+            Section("Quick toggles") {
+                io.github.nugggy.pluslock.service.panelToggles.forEach { (key, label) ->
+                    SwitchRow(label, null, key in on) { want ->
+                        P.panelToggles.value = io.github.nugggy.pluslock.service.panelToggles.keys.filter { k -> if (k == key) want else k in on }.joinToString(",")
+                    }
+                }
+            }
+        }
+        item {
+            val colour by P.panelColour.observe()
+            Section("Look") {
+                PrefChoice(P.panelStyle, "Style", linkedMapOf("DARK" to "Dark", "BLACK" to "Pure black", "GLASS" to "Glass: see-through"))
+                ColourRow("Accent colour", colour) { P.panelColour.value = it }
+                PrefSlider(P.panelWidth, "Width", 60..95) { "$it% of the screen" }
             }
         }
         item {

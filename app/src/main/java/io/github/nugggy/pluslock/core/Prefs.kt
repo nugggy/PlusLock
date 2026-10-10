@@ -252,6 +252,12 @@ object P {
     val panelApps = StringPref("panel_apps", "") // comma separated packages
     val panelContacts = StringPref("panel_contacts", "[]")
     val panelSide = StringPref("panel_side", "RIGHT")
+    val panelToggles = StringPref("panel_toggles", "TORCH,CAFFEINE,SOUND,PAUSE,SCREENSHOT,LOCK")
+    val panelSections = StringPref("panel_sections", "TOGGLES,APPS,PEOPLE,NOTE,CALC,RECENT")
+    val panelNote = StringPref("panel_note", "")
+    val panelStyle = StringPref("panel_style", "DARK") // DARK, BLACK, GLASS
+    val panelWidth = IntPref("panel_width_pct", 78)
+    val panelColour = IntPref("panel_colour", 0xFF7FB2FF.toInt())
 
     // Camera island
     val islandOn = BoolPref("island_on", false)
@@ -259,11 +265,19 @@ object P {
     val islandCalls = BoolPref("island_calls", true)
     val islandTimers = BoolPref("island_timers", true)
     val islandCharging = BoolPref("island_charging", true)
+    val islandPeek = BoolPref("island_peek", true)
+    val islandPeekSeconds = IntPref("island_peek_seconds", 4)
+    val islandProgress = BoolPref("island_progress", true)
+    val islandNav = BoolPref("island_nav", true)
+    val islandGlow = BoolPref("island_glow", true)
+    val islandGestures = BoolPref("island_gestures", true)
+    val islandSize = IntPref("island_size_pct", 100)
+    val islandCollapseSeconds = IntPref("island_collapse_seconds", 6)
 
     // Volume panel
     val volPanelOn = BoolPref("volpanel_on", false)
     val volPanelSide = StringPref("volpanel_side", "RIGHT")
-    val volPanelStreams = StringPref("volpanel_streams", "MUSIC,RING,NOTIFICATION,ALARM") // MUSIC, RING, NOTIFICATION, ALARM, CALL, SYSTEM
+    val volPanelStreams = StringPref("volpanel_streams2", "MUSIC,RING,NOTIFICATION,ALARM,CALL,SYSTEM") // MUSIC, RING, NOTIFICATION, ALARM, CALL, SYSTEM
     val volPanelExpanded = BoolPref("volpanel_expanded", false)
     val volPanelButtons = StringPref("volpanel_buttons", "AUTO") // AUTO, MUSIC, RING
     val volPanelStyle = StringPref("volpanel_style", "DARK") // DARK, BLACK, GLASS, LIGHT, TINT
@@ -287,6 +301,8 @@ object P {
     val boostOn = BoolPref("boost_on", false)
     val boostDb = IntPref("boost_db", 6)
     val boostSpeakerOnly = BoolPref("boost_speaker_only", true)
+    val appVolumesJson = StringPref("app_volumes_json", "{}")
+    val volPanelApps = BoolPref("volpanel_apps", true)
 
     // Morning digest
     val digestOn = BoolPref("digest_on", false)
@@ -313,6 +329,18 @@ object P {
     val lockClockPosition = IntPref("lockclock_position", 22)
     val lockClockSize = IntPref("lockclock_size", 100)
     val lockClockDate = BoolPref("lockclock_date", true)
+    val lockClockColourMode = StringPref("lockclock_colour_mode", "CUSTOM") // CUSTOM, WALLPAPER, GRADIENT, RAINBOW
+    val lockClockColour2 = IntPref("lockclock_colour2", 0xFFFF6BE0.toInt())
+    val lockClockAlign = StringPref("lockclock_align", "CENTRE") // LEFT, CENTRE, RIGHT
+    val lockClockSeconds = BoolPref("lockclock_seconds", false)
+    val lockClockDateFormat = StringPref("lockclock_date_format", "FULL") // FULL, SHORT, NUMERIC
+    val lockClockGlow = BoolPref("lockclock_glow", false)
+    val lockClockOpacity = IntPref("lockclock_opacity_pct", 100)
+    val lockClockBattery = BoolPref("lockclock_battery", false)
+    val lockClockAlarm = BoolPref("lockclock_alarm", false)
+    val lockClockWeather = BoolPref("lockclock_weather", false)
+    val lockClockMusic = BoolPref("lockclock_music", false)
+    val lockClockUnread = BoolPref("lockclock_unread", false)
 
     // Notification tricks
     val hapticsOn = BoolPref("haptics_on", true)

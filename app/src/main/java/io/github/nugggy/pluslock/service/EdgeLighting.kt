@@ -20,6 +20,7 @@ import android.view.RoundedCorner
 import android.view.View
 import android.view.WindowInsets
 import android.view.animation.LinearInterpolator
+import io.github.nugggy.pluslock.core.Diag
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Waker
 import kotlin.math.PI
@@ -99,7 +100,9 @@ class EdgeLighting(private val svc: PlusAccessibilityService) {
         svc.handler.post {
             if (!svc.getSystemService(PowerManager::class.java).isInteractive) {
                 // Screen off: light it up first if asked to, then glow over the lock screen.
-                if (alert.reminder || !(alert.wake || P.lightingWake.value)) return@post
+                if (alert.reminder || !(alert.wake || P.lightingWake.value)) {
+                    Diag.log("lighting", "screen off, not waking for ${alert.title ?: "a glow"}"); return@post
+                }
                 Waker.wake(svc, holdMs = (alert.durationMs ?: (P.lightingDuration.value * 1000L)) + 1500,
                     skipInPocket = P.lightingWakePocket.value) { show(alert) }
                 return@post
@@ -129,7 +132,8 @@ class EdgeLighting(private val svc: PlusAccessibilityService) {
             val v = glowView(svc, style)
             val b = svc.screenBounds()
             val lp = svc.overlayParams(b.width(), b.height(), touchable = false)
-            if (!svc.addOverlay(v, lp)) { current = null; return@post }
+            if (!svc.addOverlay(v, lp)) { current = null; Diag.log("lighting", "couldn't draw the glow"); return@post }
+            Diag.log("lighting", "glow for ${alert.title ?: "an alert"}, ${style.effect}")
             view = v
             svc.chargeFx.duck(true)
             if (P.ringNotifFlash.value && !alert.reminder) svc.ring.flash(alert.colour, alert.durationMs ?: (P.lightingDuration.value * 1000L))

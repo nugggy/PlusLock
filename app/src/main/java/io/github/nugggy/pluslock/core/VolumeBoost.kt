@@ -64,6 +64,7 @@ object VolumeBoost {
         val gain = gainMb()
         if (gain <= 0) { releaseAll(); return }
         globalWorks = attach(0, gain)
+        Diag.log("boost", "+${gain / 100} dB, whole phone " + if (globalWorks == true) "accepted" else "refused" + ", ${sessions.size} app session(s)")
         sessions.forEach { attach(it, gain) }
     }
 
@@ -100,9 +101,12 @@ class BoostSessionReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, i: Intent) {
         Prefs.init(ctx)
         val id = i.getIntExtra(AudioEffect.EXTRA_AUDIO_SESSION, -1)
+        val pkg = i.getStringExtra(AudioEffect.EXTRA_PACKAGE_NAME).orEmpty()
         when (i.action) {
-            AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION -> { VolumeBoost.init(ctx); VolumeBoost.openSession(id) }
-            AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION -> VolumeBoost.closeSession(id)
+            AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION -> {
+                VolumeBoost.init(ctx); VolumeBoost.openSession(id); AppAudio.open(id, pkg)
+            }
+            AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION -> { VolumeBoost.closeSession(id); AppAudio.close(id) }
         }
     }
 }

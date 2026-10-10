@@ -50,7 +50,10 @@ class VolumeSkip(private val svc: PlusAccessibilityService, private val panel: V
         when (e.action) {
             KeyEvent.ACTION_DOWN -> {
                 if (held == 0) {
-                    if (e.repeatCount != 0 || inCall || systemShouldHandle()) return false
+                    if (e.repeatCount != 0 || inCall || systemShouldHandle()) {
+                        io.github.nugggy.pluslock.core.Diag.log("volume keys", "left to the system" + if (inCall) " (call)" else "")
+                        return false
+                    }
                     val skip = P.volumeSkip.value && am.isMusicActive
                     if (!skip && !P.volPanelOn.value) return false
                     held = code

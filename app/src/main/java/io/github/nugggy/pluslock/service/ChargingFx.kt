@@ -100,6 +100,7 @@ class ChargingFx(private val svc: PlusAccessibilityService) {
     }
 
     fun onPlugged() {
+        io.github.nugggy.pluslock.core.Diag.log("charging", "plugged in at ${state.level}%, screen " + if (pm.isInteractive) "on" else "off")
         val h = P.chargePlugHaptic.value
         if (h != "NONE") Haptics.play(svc, h, "")
         if (P.chargingGlow.value && !P.chargeGlowStay.value) {
@@ -206,7 +207,10 @@ class ChargingFx(private val svc: PlusAccessibilityService) {
         val b = svc.screenBounds()
         val v = ChargeScreenView(svc, onTap = { hideScreen() })
         v.state = if (force && !state.charging) state.copy(charging = true, etaMs = 75 * 60_000L, watts = 33f) else state
-        if (!svc.addOverlay(v, svc.overlayParams(b.width(), b.height(), touchable = true))) return
+        if (!svc.addOverlay(v, svc.overlayParams(b.width(), b.height(), touchable = true))) {
+            io.github.nugggy.pluslock.core.Diag.log("charging", "couldn't show the animation"); return
+        }
+        io.github.nugggy.pluslock.core.Diag.log("charging", "showing ${P.chargeAnimStyle.value}")
         screen = v
         svc.handler.post(ticker)
         scheduleHide()

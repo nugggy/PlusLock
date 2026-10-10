@@ -75,6 +75,7 @@ class BatteryWatcher(private val svc: PlusAccessibilityService) {
         BatteryLog.record(pct, i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0), charging)
         val eta = if (charging) runCatching { bm.computeChargeTimeRemaining() }.getOrDefault(-1L) else -1L
         svc.ring.update(pct, charging, eta)
+        svc.routines.onBattery(pct)
 
         val prev = wasCharging
         wasCharging = charging

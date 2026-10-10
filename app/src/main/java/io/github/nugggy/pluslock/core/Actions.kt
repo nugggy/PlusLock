@@ -38,6 +38,13 @@ enum class GestureAction(val label: String) {
     SIDE_PANEL("Side panel"),
     EXTRA_DIM("Extra dim on or off"),
     LAUNCH_APP("Open an app"),
+    VOLUME_PANEL("Volume panel"),
+    VOLUME_BOOST("Volume boost on or off"),
+    DND("Do Not Disturb on or off"),
+    ROTATION("Auto-rotate on or off"),
+    MUTE_MEDIA("Mute or unmute media"),
+    QUICK_NOTE("Quick note"),
+    CALCULATOR("Calculator in the side panel"),
 }
 
 object Actions {
@@ -104,6 +111,35 @@ object Actions {
                 toast(ctx, if (P.dimOn.value) "Extra dim on" else "Extra dim off")
             }
             GestureAction.PAUSE_LIGHTING -> toast(ctx, "Edge lighting: " + Silence.cycle())
+            GestureAction.VOLUME_PANEL -> if (svc == null) toast(ctx, "Turn on the Pimp my Phone accessibility service first") else svc.volumePanel.preview()
+            GestureAction.VOLUME_BOOST -> {
+                P.boostOn.value = !P.boostOn.value
+                toast(ctx, if (P.boostOn.value) "Volume boost on" else "Volume boost off")
+            }
+            GestureAction.DND -> {
+                val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
+                if (!nm.isNotificationPolicyAccessGranted) toast(ctx, "Allow Do Not Disturb access for Pimp my Phone first")
+                else {
+                    val on = nm.currentInterruptionFilter > android.app.NotificationManager.INTERRUPTION_FILTER_ALL
+                    nm.setInterruptionFilter(if (on) android.app.NotificationManager.INTERRUPTION_FILTER_ALL else android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+                    toast(ctx, if (on) "Do Not Disturb off" else "Do Not Disturb on")
+                }
+            }
+            GestureAction.ROTATION -> {
+                if (!android.provider.Settings.System.canWrite(ctx)) toast(ctx, "Allow Modify system settings for Pimp my Phone first")
+                else {
+                    val cr = ctx.contentResolver
+                    val on = android.provider.Settings.System.getInt(cr, android.provider.Settings.System.ACCELEROMETER_ROTATION, 0) == 1
+                    android.provider.Settings.System.putInt(cr, android.provider.Settings.System.ACCELEROMETER_ROTATION, if (on) 0 else 1)
+                    toast(ctx, if (on) "Auto-rotate off" else "Auto-rotate on")
+                }
+            }
+            GestureAction.MUTE_MEDIA -> ctx.getSystemService(AudioManager::class.java)
+                .adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI)
+            GestureAction.QUICK_NOTE -> ctx.startActivity(
+                Intent(ctx, io.github.nugggy.pluslock.ui.NoteActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            GestureAction.CALCULATOR -> if (svc == null) toast(ctx, "Turn on the Pimp my Phone accessibility service first") else svc.panel.show(calculator = true)
             GestureAction.VAULT -> ctx.startActivity(
                 Intent(ctx, MainActivity::class.java)
                     .putExtra(MainActivity.EXTRA_SCREEN, "vault")

@@ -29,6 +29,7 @@ import io.github.nugggy.pluslock.data.RoutineAction
 import io.github.nugggy.pluslock.data.RoutineActionType
 import io.github.nugggy.pluslock.data.Routines
 import io.github.nugggy.pluslock.data.Trigger
+import io.github.nugggy.pluslock.data.ConditionType
 import io.github.nugggy.pluslock.data.TriggerType
 import kotlin.math.roundToInt
 
@@ -106,6 +107,56 @@ class RoutineEngine(private val svc: PlusAccessibilityService) {
     }
 
     fun onAppOpened(pkg: String) = fire(TriggerType.APP_OPEN, pkg)
+    fun onScreenOn() = fire(TriggerType.SCREEN_ON)
+    fun onScreenOff() = fire(TriggerType.SCREEN_OFF)
+    fun onUnlocked() = fire(TriggerType.UNLOCK)
+    fun onNotification(pkg: String) = fire(TriggerType.NOTIFICATION, pkg)
+
+    private var lastBattery = -1
+
+    /** Battery level changed: fire routines whose level was just crossed. */
+    fun onBattery(pct: Int) {
+        val prev = lastBattery
+        lastBattery = pct
+        if (prev < 0 || prev == pct || !P.routinesOn.value) return
+        Routines.all().filter { it.on }.forEach { r ->
+            val level = r.trigger.arg.toIntOrNull() ?: return@forEach
+            val crossed = when (r.trigger.type) {
+                TriggerType.BATTERY_BELOW -> prev >= level && pct < level
+                TriggerType.BATTERY_ABOVE -> prev < level && pct >= level
+                else -> false
+            }
+            if (crossed && allowed(r)) run(r)
+        }
+    }
+
+    private fun battery(): Pair<Int, Boolean> {
+        val i = svc.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return 100 to false
+        val pct = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, 100) * 100 / i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val st = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0)
+        return pct to (st == android.os.BatteryManager.BATTERY_STATUS_CHARGING || st == android.os.BatteryManager.BATTERY_STATUS_FULL)
+    }
+
+    /** Every "only if" is true right now. */
+    fun allowed(r: Routine): Boolean = r.conditions.all { c ->
+        when (c.type) {
+            ConditionType.TIME_BETWEEN -> {
+                val parts = c.arg.split('-')
+                Hours.inWindow(parts.getOrNull(0)?.toIntOrNull() ?: 22, parts.getOrNull(1)?.toIntOrNull() ?: 7)
+            }
+            ConditionType.WEEKDAYS -> Hours.isWeekday()
+            ConditionType.WEEKENDS -> !Hours.isWeekday()
+            ConditionType.CHARGING -> battery().second
+            ConditionType.NOT_CHARGING -> !battery().second
+            ConditionType.HEADPHONES -> headphonesNow()
+            ConditionType.NO_HEADPHONES -> !headphonesNow()
+            ConditionType.WIFI -> wifiNets.isNotEmpty()
+            ConditionType.NO_WIFI -> wifiNets.isEmpty()
+            ConditionType.BATTERY_BELOW -> battery().first < (c.arg.toIntOrNull() ?: 30)
+            ConditionType.LOCKED -> svc.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked
+            ConditionType.UNLOCKED -> !svc.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked
+        }
+    }
 
     private fun setWifi(n: Network, up: Boolean) {
         val was = wifiNets.isNotEmpty()
@@ -152,7 +203,7 @@ class RoutineEngine(private val svc: PlusAccessibilityService) {
     fun onAlarm(key: String) {
         val r = Routines.get(key.removePrefix(KEY)) ?: return
         if (!P.routinesOn.value || !r.on || r.trigger.type != TriggerType.TIME) return
-        if (!Routines.timeArg(r.trigger.arg).second || Hours.isWeekday()) run(r)
+        if ((!Routines.timeArg(r.trigger.arg).second || Hours.isWeekday()) && allowed(r)) run(r)
         arm(r)
     }
 
@@ -160,16 +211,33 @@ class RoutineEngine(private val svc: PlusAccessibilityService) {
 
     private fun fire(type: TriggerType, detail: String = "") {
         if (!P.routinesOn.value) return
-        Routines.all().filter { it.on && it.trigger.type == type && matches(it.trigger, detail) }.forEach { run(it) }
+        Routines.all().filter { it.on && it.trigger.type == type && matches(it.trigger, detail) && allowed(it) }.forEach {
+            io.github.nugggy.pluslock.core.Diag.log("routines", "running ${it.name.ifBlank { "a routine" }}")
+            run(it)
+        }
     }
 
     private fun matches(t: Trigger, detail: String): Boolean = when (t.type) {
         TriggerType.APP_OPEN -> t.arg == detail
         TriggerType.BT_ON, TriggerType.BT_OFF -> t.arg.isBlank() || t.arg.equals(detail, ignoreCase = true)
+        TriggerType.NOTIFICATION -> t.arg.isBlank() || t.arg == detail
         else -> true
     }
 
-    fun run(r: Routine) = r.actions.forEach { runCatching { act(it) } }
+    /** Runs the actions in order. A Wait pushes everything after it back. */
+    fun run(r: Routine) {
+        var delay = 0L
+        r.actions.forEach { a ->
+            if (a.type == RoutineActionType.WAIT) { delay += (a.arg.toLongOrNull() ?: 5L).coerceIn(1, 3600) * 1000L; return@forEach }
+            if (delay == 0L) runCatching { act(a) } else svc.handler.postDelayed({ runCatching { act(a) } }, delay)
+        }
+    }
+
+    private fun setVolume(stream: Int, pct: Int) {
+        val min = am.getStreamMinVolume(stream)
+        val max = am.getStreamMaxVolume(stream)
+        runCatching { am.setStreamVolume(stream, (min + (max - min) * pct / 100f).roundToInt(), 0) }
+    }
 
     private fun act(a: RoutineAction) {
         when (a.type) {
@@ -203,6 +271,20 @@ class RoutineEngine(private val svc: PlusAccessibilityService) {
                 Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, ((a.arg.toIntOrNull() ?: 50) * 255 / 100).coerceIn(1, 255))
             }
             RoutineActionType.GESTURE -> Actions.run(svc, a.arg.ifBlank { "PLAY_PAUSE" })
+            RoutineActionType.RING_VOLUME -> setVolume(AudioManager.STREAM_RING, a.arg.toIntOrNull() ?: 50)
+            RoutineActionType.NOTIFICATION_VOLUME -> setVolume(AudioManager.STREAM_NOTIFICATION, a.arg.toIntOrNull() ?: 50)
+            RoutineActionType.ALARM_VOLUME -> setVolume(AudioManager.STREAM_ALARM, a.arg.toIntOrNull() ?: 50)
+            RoutineActionType.VOLUME_BOOST -> P.boostOn.value = a.arg != "OFF"
+            RoutineActionType.EDGE_LIGHTING -> P.lightingOn.value = a.arg != "OFF"
+            RoutineActionType.EXTRA_DIM -> P.dimOn.value = a.arg != "OFF"
+            RoutineActionType.ROTATION -> if (Settings.System.canWrite(svc)) {
+                Settings.System.putInt(svc.contentResolver, Settings.System.ACCELEROMETER_ROTATION, if (a.arg == "OFF") 0 else 1)
+            }
+            RoutineActionType.VIBRATE -> io.github.nugggy.pluslock.core.Haptics.play(svc, a.arg.ifBlank { "HEARTBEAT" }, "")
+            RoutineActionType.BLINK_TORCH -> io.github.nugggy.pluslock.core.FindPhone.blinkTorch(svc, 4)
+            RoutineActionType.MESSAGE -> io.github.nugggy.pluslock.core.Notifs.post(svc, 400 + (a.arg.hashCode() and 0xFF),
+                io.github.nugggy.pluslock.core.Notifs.CH_ALERTS, "Routine", a.arg.ifBlank { "Routine ran" })
+            RoutineActionType.WAIT -> Unit
         }
     }
 }

@@ -103,7 +103,12 @@ val featureIndex: List<Feature> = listOf(
     Feature("Quick Settings tiles", "Control deck and tiles", Screen.Deck, "controls", "tile quick settings shade toggle"),
     // Side panel and routines
     Feature("Side panel", "Side panel", Screen.Panel, "controls", "panel sidebar edge apps favourites shortcuts people contacts"),
-    Feature("Routines", "Routines", Screen.Routines, "automation", "automation routine trigger when if then bluetooth time wifi tasker"),
+    Feature("Routines", "Routines", Screen.Routines, "automation", "automation routine trigger when if then bluetooth time wifi tasker condition only if wait battery screen unlock notification"),
+    Feature("Calculator", "Side panel", Screen.Panel, "controls", "calculator calc maths sum add"),
+    Feature("Quick note", "Side panel", Screen.Panel, "controls", "note notes jot write memo scratch"),
+    Feature("Volume for each app", "Volume panel", Screen.VolumePanel, "volume", "per app volume mute app spotify youtube mixer separate"),
+    Feature("Lock screen clock faces", "Look and feel", Screen.Look, "lockscreen", "clock face analogue flip neon dot matrix giant outline split battery alarm weather unread music"),
+    Feature("Camera island extras", "Look and feel", Screen.Look, "island", "island peek message download progress directions navigation maps swipe glow"),
     // Look and feel
     Feature("Camera island", "Look and feel", Screen.Look, "island", "dynamic island pill music call timer"),
     Feature("Volume panel", "Volume panel", Screen.VolumePanel, "volume", "volume slider panel sound loud quiet"),
@@ -132,6 +137,7 @@ val featureIndex: List<Feature> = listOf(
     Feature("Privacy policy", "Legal and about", Screen.Legal("privacy"), "legal", "privacy data policy information collect gdpr"),
     Feature("Terms of use", "Legal and about", Screen.Legal("terms"), "legal", "terms conditions tos rules agreement"),
     Feature("Licences and about", "Legal and about", Screen.Legal(), "legal", "licence license open source about version mit"),
+    Feature("Diagnostics and self-test", "Diagnostics", Screen.Diagnostics, "app", "diagnostics test debug broken not working bug problem report fix check log"),
     Feature("ADB extras", "ADB extras", Screen.Adb, "app", "adb computer usb debugging permission unlock"),
 )
 
