@@ -246,52 +246,52 @@ class ChargingFx(private val svc: PlusAccessibilityService) {
     }
 }
 
+/**
+ * The full-screen charging animation. Also used small inside the app as a live preview,
+ * in which case [onTap] is null and it leaves touches alone.
+ */
 @SuppressLint("ViewConstructor")
-private class ChargeScreenView(ctx: Context, private val onTap: () -> Unit) : View(ctx) {
+class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : View(ctx) {
     var state = ChargeState()
         set(v) { field = v; invalidate() }
 
-    private val style = P.chargeAnimStyle.value
-    private val size = P.chargeAnimSize.value / 100f
-    private val speed = P.chargeAnimSpeed.value / 100f
-    private val particles = P.chargeAnimParticles.value / 100f
-    private val glowAmt = P.chargeAnimGlow.value / 100f
-    private val dim = P.chargeAnimDim.value / 100f
-    private val position = P.chargeAnimPosition.value
-    private val mode = P.chargeColourMode.value
-    private val colour2 = P.chargeColour2.value
-    private val showPct = P.chargeAnimPct.value
-    private val decimals = P.chargeAnimDecimals.value
-    private val showEta = P.chargeAnimEta.value
-    private val showWatts = P.chargeAnimWatts.value
-    private val showTemp = P.chargeAnimTemp.value
-    private val showClock = P.chargeAnimClock.value
-    private val showBolt = P.chargeAnimBolt.value
-    private val typeface = when (P.chargeAnimFont.value) {
-        "THIN" -> Typeface.create("sans-serif-thin", Typeface.NORMAL)
-        "BOLD" -> Typeface.create("sans-serif-black", Typeface.NORMAL)
-        "MONO" -> Typeface.MONOSPACE
-        "SERIF" -> Typeface.SERIF
-        "CONDENSED" -> Typeface.create("sans-serif-condensed", Typeface.BOLD)
-        else -> Typeface.create("sans-serif", Typeface.NORMAL)
-    }
+    private var style = ""
+    private var size = 1f
+    private var speed = 1f
+    private var particles = 1f
+    private var glowAmt = 1f
+    private var dim = 0f
+    private var position = ""
+    private var mode = ""
+    private var colour2 = 0
+    private var showPct = true
+    private var decimals = false
+    private var showEta = true
+    private var showWatts = true
+    private var showTemp = false
+    private var showClock = false
+    private var showBolt = true
 
     /** Seconds since the animation started, scaled by the speed setting. */
     private var t = 0f
-    private val start = SystemClock.elapsedRealtime()
+    private var lastFrame = SystemClock.elapsedRealtime()
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 1000
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
-        addUpdateListener { t = (SystemClock.elapsedRealtime() - start) / 1000f * speed; invalidate() }
+        addUpdateListener {
+            // Step by elapsed time so a speed change in the preview doesn't make it jump.
+            val now = SystemClock.elapsedRealtime()
+            t += (now - lastFrame) / 1000f * speed
+            lastFrame = now
+            invalidate()
+        }
     }
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     private val halo = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
-    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; textAlign = Paint.Align.CENTER; typeface = this@ChargeScreenView.typeface
-    }
+    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textAlign = Paint.Align.CENTER }
     private val sub = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xDDFFFFFF.toInt(); textAlign = Paint.Align.CENTER; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }
@@ -300,16 +300,59 @@ private class ChargeScreenView(ctx: Context, private val onTap: () -> Unit) : Vi
     private val rect = RectF()
 
     init {
-        alpha = 0f
-        animate().alpha(1f).setDuration(300).start()
+        loadPrefs()
+        if (onTap != null) {
+            alpha = 0f
+            animate().alpha(1f).setDuration(300).start()
+        }
+    }
+
+    /** Reads the settings again. The preview calls this whenever one changes. */
+    fun loadPrefs() {
+        style = P.chargeAnimStyle.value
+        size = P.chargeAnimSize.value / 100f
+        speed = P.chargeAnimSpeed.value / 100f
+        particles = P.chargeAnimParticles.value / 100f
+        glowAmt = P.chargeAnimGlow.value / 100f
+        dim = P.chargeAnimDim.value / 100f
+        position = P.chargeAnimPosition.value
+        mode = P.chargeColourMode.value
+        colour2 = P.chargeColour2.value
+        showPct = P.chargeAnimPct.value
+        decimals = P.chargeAnimDecimals.value
+        showEta = P.chargeAnimEta.value
+        showWatts = P.chargeAnimWatts.value
+        showTemp = P.chargeAnimTemp.value
+        showClock = P.chargeAnimClock.value
+        showBolt = P.chargeAnimBolt.value
+        text.typeface = when (P.chargeAnimFont.value) {
+            "THIN" -> Typeface.create("sans-serif-thin", Typeface.NORMAL)
+            "BOLD" -> Typeface.create("sans-serif-black", Typeface.NORMAL)
+            "MONO" -> Typeface.MONOSPACE
+            "SERIF" -> Typeface.SERIF
+            "CONDENSED" -> Typeface.create("sans-serif-condensed", Typeface.BOLD)
+            else -> Typeface.create("sans-serif", Typeface.NORMAL)
+        }
+        invalidate()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        lastFrame = SystemClock.elapsedRealtime()
         animator.start()
+    }
+
+    override fun onDetachedFromWindow() {
+        animator.cancel()
+        super.onDetachedFromWindow()
     }
 
     fun stop() = animator.cancel()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        if (e.action == MotionEvent.ACTION_UP) onTap()
+        val tap = onTap ?: return false
+        if (e.action == MotionEvent.ACTION_UP) tap()
         return true
     }
 

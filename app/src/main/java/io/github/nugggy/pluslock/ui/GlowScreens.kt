@@ -2,7 +2,23 @@ package io.github.nugggy.pluslock.ui
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.viewinterop.AndroidView
+import io.github.nugggy.pluslock.core.Prefs
+import io.github.nugggy.pluslock.service.ChargeScreenView
+import io.github.nugggy.pluslock.service.ChargeState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
@@ -379,11 +395,18 @@ fun ChargingScreen(nav: Nav) {
         if (needsService(ctx)) return
         PlusAccessibilityService.instance?.chargeFx?.preview()
     }
+    val style by P.chargeAnimStyle.observe()
     ScreenScaffold("Charging effects", nav.back) {
+        item { ChargePreview() }
+        item {
+            Note(if (anim) "This is how it looks when you plug in. It follows every setting below as you change it."
+                else "The charging animation is off, so plugging in only shows the glow round the edge. Turn it on below, or pick a style, to use it.")
+        }
         item {
             Section("Charging animation") {
                 PrefSwitch(P.chargeAnimOn, "Charging animation", "A full-screen animation when you plug in")
-                PrefChoice(P.chargeAnimStyle, "Style", chargeAnimStyles)
+                // Picking a style means you want to see it, so switch the animation on too.
+                ChoiceRow("Style", chargeAnimStyles, style) { P.chargeAnimStyle.value = it; P.chargeAnimOn.value = true }
                 if (anim) {
                     PrefChoice(P.chargeAnimWhen, "When", linkedMapOf(
                         "PLUG" to "When I plug in",
@@ -467,6 +490,37 @@ fun ChargingScreen(nav: Nav) {
             }
         }
         item { Note("Charging effects need the accessibility service. The glow steps aside while a notification is glowing, then comes back.") }
+    }
+}
+
+/** A small phone-shaped live preview of the charging animation, at a made-up 62%. */
+@Composable
+private fun ChargePreview() {
+    val conf = LocalConfiguration.current
+    val aspect = conf.screenWidthDp.toFloat() / conf.screenHeightDp.coerceAtLeast(1)
+    val view = remember { mutableStateOf<ChargeScreenView?>(null) }
+    DisposableEffect(Unit) {
+        val l = SharedPreferences.OnSharedPreferenceChangeListener { _, k -> if (k?.startsWith("chargefx") == true) view.value?.loadPrefs() }
+        Prefs.sp.registerOnSharedPreferenceChangeListener(l)
+        onDispose { Prefs.sp.unregisterOnSharedPreferenceChangeListener(l) }
+    }
+    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+        // A stand-in wallpaper behind, so the background darkness setting shows.
+        Box(
+            Modifier.height(440.dp).aspectRatio(aspect.coerceIn(0.4f, 0.8f))
+                .clip(RoundedCornerShape(28.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF3A4A8C), Color(0xFF8C3A6E), Color(0xFFE0864A)))),
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    ChargeScreenView(ctx).apply {
+                        state = ChargeState(level = 62, charging = true, etaMs = 48 * 60_000L, watts = 33f, tempC = 31.4f, exact = 62.47f)
+                        view.value = this
+                    }
+                },
+                modifier = Modifier.matchParentSize(),
+            )
+        }
     }
 }
 
