@@ -29,6 +29,13 @@ fun versionCodeFor(name: String): Int {
     return nums[0] * 1_000_000 + nums[1].coerceAtMost(99) * 10_000 + nums[2].coerceAtMost(99) * 100 + preNum
 }
 
+// The privacy policy, terms and licence live in the repo root; the app shows the same files.
+val copyLegal by tasks.registering(Copy::class) {
+    from(rootProject.files("PRIVACY.md", "TERMS.md", "LICENSE"))
+    into(layout.buildDirectory.dir("generated/legal/legal"))
+}
+tasks.named("preBuild") { dependsOn(copyLegal) }
+
 android {
     namespace = "io.github.nugggy.pluslock"
     compileSdk = 36
@@ -71,6 +78,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/legal"))
     buildFeatures {
         compose = true
         buildConfig = true

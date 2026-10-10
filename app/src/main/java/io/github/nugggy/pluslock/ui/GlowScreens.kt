@@ -513,3 +513,118 @@ fun FindPhoneScreen(nav: Nav) {
         }
     }
 }
+
+// ---------------------------------------------------------------- Volume panel
+
+@Composable
+fun VolumePanelScreen(nav: Nav) {
+    val ctx = LocalContext.current
+    val streams by P.volPanelStreams.observe()
+    val colour by P.volPanelColour.observe()
+    val rainbow by P.volPanelRainbow.observe()
+    val chosen = streams.split(',').filter { it.isNotBlank() }
+    fun preview() {
+        if (needsService(ctx)) return
+        PlusAccessibilityService.instance?.volumePanel?.preview()
+    }
+    // Show the panel as settings change, so you can see what you're doing.
+    val look = listOf(streams, colour, rainbow, P.volPanelStyle.observe().value, P.volPanelWidth.observe().value,
+        P.volPanelHeight.observe().value, P.volPanelCorner.observe().value, P.volPanelLayout.observe().value,
+        P.volPanelSide.observe().value, P.volPanelOffset.observe().value, P.volPanelMargin.observe().value,
+        P.volPanelOpacity.observe().value, P.volPanelNumbers.observe().value, P.volPanelLabels.observe().value,
+        P.volPanelModeChip.observe().value, P.volPanelExpanded.observe().value)
+    var first by remember { mutableStateOf(true) }
+    LaunchedEffect(look) {
+        if (first) { first = false; return@LaunchedEffect }
+        if (PlusAccessibilityService.instance != null) PlusAccessibilityService.instance?.volumePanel?.preview()
+    }
+    ScreenScaffold("Volume panel", nav.back) {
+        item {
+            Section("Volume panel") {
+                PrefSwitch(P.volPanelOn, "Pimp my Phone volume panel", "Replaces the system volume slider when you press the volume buttons")
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    Button(onClick = { preview() }, modifier = Modifier.fillMaxWidth()) { Text("Show it now") }
+                }
+            }
+        }
+        item {
+            Section("Which volumes") {
+                Note("Pick the sliders you want. The one the buttons move always shows; the rest sit behind the dots.")
+                io.github.nugggy.pluslock.service.volumeStreams.forEach { (key, label) ->
+                    SwitchRow(label, null, key in chosen) { on ->
+                        val next = io.github.nugggy.pluslock.service.volumeStreams.keys.filter { k -> if (k == key) on else k in chosen }
+                        P.volPanelStreams.value = next.joinToString(",")
+                    }
+                }
+                PrefSwitch(P.volPanelExpanded, "Always show them all", "No dots to tap: every slider you picked shows at once")
+                PrefChoice(P.volPanelButtons, "The volume buttons control", linkedMapOf(
+                    "AUTO" to "Media while something plays, otherwise the ringtone",
+                    "MUSIC" to "Always media",
+                    "RING" to "Always the ringtone",
+                ))
+            }
+        }
+        item {
+            Section("Look") {
+                PrefChoice(P.volPanelStyle, "Style", linkedMapOf(
+                    "DARK" to "Dark", "BLACK" to "Pure black", "GLASS" to "Glass: see-through", "LIGHT" to "Light", "TINT" to "Tinted with my colour",
+                ))
+                PrefSwitch(P.volPanelRainbow, "A different colour for each slider")
+                if (!rainbow) ColourRow("Slider colour", colour) { P.volPanelColour.value = it }
+                PrefChoice(P.volPanelLayout, "Sliders", linkedMapOf("VERTICAL" to "Upright", "HORIZONTAL" to "Sideways, stacked"))
+                PrefSlider(P.volPanelWidth, "Slider thickness", 24..72) { "$it dp" }
+                PrefSlider(P.volPanelHeight, "Slider length", 100..320) { "$it dp" }
+                PrefSlider(P.volPanelCorner, "Roundness", 0..40) { "$it dp" }
+                PrefSlider(P.volPanelOpacity, "Opacity", 40..100) { "$it%" }
+            }
+        }
+        item {
+            Section("Show on the panel") {
+                PrefChoice(P.volPanelNumbers, "Numbers", linkedMapOf("PERCENT" to "Percentage", "STEPS" to "Volume steps", "NONE" to "None"))
+                PrefSwitch(P.volPanelLabels, "Names under each slider")
+                PrefSwitch(P.volPanelTapMute, "Tap a name to mute", "Tap again to bring the volume back")
+                PrefSwitch(P.volPanelModeChip, "Sound mode button", "Ring, vibrate or silent")
+                PrefSwitch(P.volPanelHaptic, "Tick as the volume changes")
+            }
+        }
+        item {
+            Section("Position") {
+                PrefChoice(P.volPanelSide, "Side", mapOf("RIGHT" to "Right", "LEFT" to "Left"))
+                PrefSlider(P.volPanelOffset, "Up or down", -40..40) { if (it == 0) "Middle" else if (it < 0) "${-it}% up" else "$it% down" }
+                PrefSlider(P.volPanelMargin, "Distance from the edge", 0..60) { "$it dp" }
+                PrefIntChoice(P.volPanelTimeout, "Hide after", linkedMapOf(2 to "2 seconds", 3 to "3 seconds", 5 to "5 seconds", 8 to "8 seconds"))
+            }
+        }
+        item { Note("Works with the screen on. During a call the buttons move the call volume.") }
+        item { BoostSection() }
+    }
+}
+
+@Composable
+private fun BoostSection() {
+    val ctx = LocalContext.current
+    val on by P.boostOn.observe()
+    val db by P.boostDb.observe()
+    var warned by remember { mutableStateOf(false) }
+    Section("Volume boost") {
+        SwitchRow("Louder than the maximum", "Pushes sound past the phone's own top volume", on) { want ->
+            if (want && !warned) warned = true else P.boostOn.value = want
+        }
+        if (on) {
+            PrefSlider(P.boostDb, "Boost", 1..15) { "+$it dB" }
+            PrefSwitch(P.boostSpeakerOnly, "Speaker only", "Switches off by itself when headphones or earbuds are connected, to protect your hearing")
+        }
+    }
+    if (on) Note(
+        "Works on the phone's speaker for most apps. Some apps only get it after they announce themselves to equaliser apps, so restart the song or video if it isn't louder yet. " +
+            if (io.github.nugggy.pluslock.core.VolumeBoost.globalWorks == false) "This phone refused the whole-phone boost, so it only reaches apps that announce themselves." else "",
+    )
+    if (on && db >= 10) Note("Above +10 dB loud sounds can crackle, and the speaker can get stressed. Turn it down if it sounds rough.")
+    if (warned) AlertDialog(
+        onDismissRequest = { warned = false },
+        title = { Text("Protect your ears") },
+        text = { Text("Boosted sound can damage your hearing and strain the speaker. Start low, don't use it for long periods with headphones, and turn it down if it distorts.") },
+        confirmButton = { TextButton(onClick = { P.boostOn.value = true; warned = false; needsService(ctx) }) { Text("Turn it on") } },
+        dismissButton = { TextButton(onClick = { warned = false }) { Text("Cancel") } },
+    )
+}

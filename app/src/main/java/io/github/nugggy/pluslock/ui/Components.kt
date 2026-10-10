@@ -83,8 +83,17 @@ import kotlin.math.roundToInt
 @Composable
 fun PlusTheme(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
-    val dark = isSystemInDarkTheme()
-    val scheme = if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+    // Pure black behind everything, with cards lifted just enough to see.
+    val scheme = dynamicDarkColorScheme(ctx).copy(
+        background = Color.Black,
+        surface = Color.Black,
+        surfaceDim = Color.Black,
+        surfaceContainerLowest = Color.Black,
+        surfaceContainerLow = Color(0xFF0B0B0B),
+        surfaceContainer = Color(0xFF111111),
+        surfaceContainerHigh = Color(0xFF161616),
+        surfaceContainerHighest = Color(0xFF1F1F1F),
+    )
     MaterialTheme(colorScheme = scheme, content = content)
 }
 
@@ -102,7 +111,12 @@ fun <T> Pref<T>.observe(): State<T> {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScreenScaffold(title: String, onBack: (() -> Unit)?, content: LazyListScope.() -> Unit) {
+fun ScreenScaffold(
+    title: String,
+    onBack: (() -> Unit)?,
+    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    content: LazyListScope.() -> Unit,
+) {
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -114,6 +128,7 @@ fun ScreenScaffold(title: String, onBack: (() -> Unit)?, content: LazyListScope.
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
                     }
                 },
+                actions = actions,
                 scrollBehavior = scroll,
             )
         },

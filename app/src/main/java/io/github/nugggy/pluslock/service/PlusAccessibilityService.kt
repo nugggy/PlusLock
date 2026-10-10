@@ -23,6 +23,7 @@ import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Prefs
 import io.github.nugggy.pluslock.core.Silence
 import io.github.nugggy.pluslock.core.Torch
+import io.github.nugggy.pluslock.core.VolumeBoost
 
 /**
  * The hub for everything that draws over other apps or reacts to the foreground app.
@@ -62,7 +63,8 @@ class PlusAccessibilityService : AccessibilityService() {
     private lateinit var netSpeed: NetSpeed
     private lateinit var lockClock: LockClock
     private lateinit var volumeSkip: VolumeSkip
-    private lateinit var volumePanel: VolumePanel
+    lateinit var volumePanel: VolumePanel
+        private set
     lateinit var panel: SidePanel
         private set
     private lateinit var island: Island
@@ -133,6 +135,7 @@ class PlusAccessibilityService : AccessibilityService() {
         filter.refresh()
         digest.schedule()
         routines.start()
+        VolumeBoost.init(this)
     }
 
     private val screenReceiver = object : BroadcastReceiver() {
@@ -206,6 +209,7 @@ class PlusAccessibilityService : AccessibilityService() {
             key.startsWith("dim") -> filter.refresh()
             key.startsWith("digest") && key != "digest_last" -> digest.schedule()
             key.startsWith("routines") -> routines.reload()
+            key.startsWith("boost") -> VolumeBoost.apply()
         }
     }
 
@@ -274,6 +278,7 @@ class PlusAccessibilityService : AccessibilityService() {
         if (::keepAwake.isInitialized) keepAwake.release()
         if (::focus.isInitialized) focus.dismiss()
         if (::profiles.isInitialized) profiles.restoreAll()
+        VolumeBoost.releaseAll()
         super.onDestroy()
     }
 

@@ -37,6 +37,11 @@ import androidx.compose.material.icons.rounded.WbIridescent
 import android.widget.Toast
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Policy
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -73,14 +78,22 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
     val ctx = LocalContext.current
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     fun open(i: Intent) = runCatching { ctx.startActivity(i) }
+    var disclose by remember { mutableStateOf<String?>(null) }
+    ConsentDialog(nav)
+    disclose?.let { kind ->
+        DisclosureDialog(kind, onContinue = {
+            disclose = null
+            open(if (kind == "accessibility") Status.accessibilityIntent() else Status.notificationAccessIntent(ctx))
+        }, onDismiss = { disclose = null })
+    }
 
     val perms = remember(resumeTick) {
         listOf(
             Perm("Accessibility service", "Edge gestures, edge lighting, camera ring, app profiles", Status.accessibility(ctx)) {
-                open(Status.accessibilityIntent())
+                disclose = "accessibility"
             },
             Perm("Notification access", "Vault, edge lighting, haptic signatures, sound mode", Status.notificationAccess(ctx)) {
-                open(Status.notificationAccessIntent(ctx))
+                disclose = "notifications"
             },
             Perm("Show notifications", "Update, charge guard and unsent alerts", Status.postNotifications(ctx)) {
                 notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -98,7 +111,22 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
     }
     val missing = perms.count { !it.granted }
 
-    ScreenScaffold("Pimp my Phone", onBack = null) {
+    ScreenScaffold("Pimp my Phone", onBack = null, actions = {
+        IconButton(onClick = { nav.go(Screen.Search) }) { Icon(Icons.Rounded.Search, "Search features") }
+    }) {
+        item {
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+                modifier = Modifier.fillMaxWidth().clickable { nav.go(Screen.Search) },
+            ) {
+                Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Search features", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
         item {
             Text(
                 "Good Lock style customisation for your OnePlus. No root needed.",
@@ -124,6 +152,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
                 Module(Icons.Rounded.Lens, "Camera ring", "A battery ring around the selfie camera", P.ringOn) { nav.go(Screen.Ring) }
                 Module(Icons.Rounded.BatteryChargingFull, "Charging effects", "Liquid, halo, lightning and more when you plug in, plus a glow that stays on", P.chargeAnimOn) { nav.go(Screen.Charging) }
                 Module(Icons.Rounded.Wallpaper, "Living sky wallpaper", "A live wallpaper that follows the time of day and the weather", null) { nav.go(Screen.Wallpaper) }
+                Module(Icons.Rounded.TouchApp, "Interactive wallpapers", "Swarms, ripples, marbles and more that react to your touch and tilt", null) { nav.go(Screen.PlayWallpaper) }
                 Module(Icons.Rounded.Palette, "Look and feel", "Camera island, volume panel, extra dim, lock screen clock and more", null) { nav.go(Screen.Look) }
             }
         }
@@ -146,6 +175,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
                 Module(Icons.Rounded.SystemUpdate, "Updates", "Install new versions from GitHub automatically", null) { nav.go(Screen.Updates) }
                 Module(Icons.Rounded.Terminal, "ADB extras", "A one-off step that unlocks a few more features", null) { nav.go(Screen.Adb) }
                 Module(Icons.Rounded.SettingsBackupRestore, "Back up and restore", "Save all your settings to a file", null) { nav.go(Screen.Backup) }
+                Module(Icons.Rounded.Policy, "Legal and about", "Privacy policy, terms of use, licences and safety notes", null) { nav.go(Screen.Legal()) }
             }
         }
     }

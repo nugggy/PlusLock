@@ -40,6 +40,10 @@ sealed class Screen {
     data object Backup : Screen()
     data object Charging : Screen()
     data object FindPhone : Screen()
+    data object Search : Screen()
+    data object VolumePanel : Screen()
+    data object PlayWallpaper : Screen()
+    data class Legal(val doc: String = "") : Screen()
 
     companion object {
         fun fromExtra(s: String?): Screen? = when (s) {
@@ -68,7 +72,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(this)
-        enableEdgeToEdge()
+        // Always dark, so the status bar icons are always light.
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         handleIntent(intent)
         setContent {
             PlusTheme {
@@ -105,6 +113,10 @@ class MainActivity : ComponentActivity() {
                             Screen.Backup -> BackupScreen(nav)
                             Screen.Charging -> ChargingScreen(nav)
                             Screen.FindPhone -> FindPhoneScreen(nav)
+                            Screen.Search -> SearchScreen(nav)
+                            Screen.VolumePanel -> VolumePanelScreen(nav)
+                            Screen.PlayWallpaper -> PlayWallpaperScreen(nav)
+                            is Screen.Legal -> LegalScreen(nav, screen.doc)
                         }
                     }
                 }

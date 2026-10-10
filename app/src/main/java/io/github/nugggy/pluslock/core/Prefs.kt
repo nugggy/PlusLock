@@ -263,6 +263,30 @@ object P {
     // Volume panel
     val volPanelOn = BoolPref("volpanel_on", false)
     val volPanelSide = StringPref("volpanel_side", "RIGHT")
+    val volPanelStreams = StringPref("volpanel_streams", "MUSIC,RING,NOTIFICATION,ALARM") // MUSIC, RING, NOTIFICATION, ALARM, CALL, SYSTEM
+    val volPanelExpanded = BoolPref("volpanel_expanded", false)
+    val volPanelButtons = StringPref("volpanel_buttons", "AUTO") // AUTO, MUSIC, RING
+    val volPanelStyle = StringPref("volpanel_style", "DARK") // DARK, BLACK, GLASS, LIGHT, TINT
+    val volPanelColour = IntPref("volpanel_colour", 0xFF7FB2FF.toInt())
+    val volPanelRainbow = BoolPref("volpanel_rainbow", false)
+    val volPanelOpacity = IntPref("volpanel_opacity_pct", 94)
+    val volPanelWidth = IntPref("volpanel_width_dp", 44)
+    val volPanelHeight = IntPref("volpanel_height_dp", 190)
+    val volPanelCorner = IntPref("volpanel_corner_dp", 30)
+    val volPanelOffset = IntPref("volpanel_offset_pct", -10)
+    val volPanelMargin = IntPref("volpanel_margin_dp", 12)
+    val volPanelTimeout = IntPref("volpanel_timeout_s", 3)
+    val volPanelNumbers = StringPref("volpanel_numbers", "PERCENT") // PERCENT, STEPS, NONE
+    val volPanelLabels = BoolPref("volpanel_labels", true)
+    val volPanelModeChip = BoolPref("volpanel_mode_chip", true)
+    val volPanelTapMute = BoolPref("volpanel_tap_mute", true)
+    val volPanelHaptic = BoolPref("volpanel_haptic", true)
+    val volPanelLayout = StringPref("volpanel_layout", "VERTICAL") // VERTICAL, HORIZONTAL
+
+    // Volume boost
+    val boostOn = BoolPref("boost_on", false)
+    val boostDb = IntPref("boost_db", 6)
+    val boostSpeakerOnly = BoolPref("boost_speaker_only", true)
 
     // Morning digest
     val digestOn = BoolPref("digest_on", false)
@@ -312,6 +336,16 @@ object P {
     val skyWeather = BoolPref("sky_weather", false)
     val skyWeatherJson = StringPref("sky_weather_json", "")
 
+    // Interactive wallpapers
+    val playTheme = StringPref("play_theme", "SWARM")
+    val playColourMode = StringPref("play_colour_mode", "THEME") // THEME, MINE, RAINBOW
+    val playColour = IntPref("play_colour", 0xFF7FB2FF.toInt())
+    val playDensity = IntPref("play_density_pct", 100)
+    val playSpeed = IntPref("play_speed_pct", 100)
+    val playTilt = BoolPref("play_tilt", true)
+    val playBlack = BoolPref("play_black", true)
+    val playSmooth = BoolPref("play_smooth", false)
+
     // Updates
     val updateChannel = StringPref("update_channel", "stable")
     val autoUpdate = BoolPref("auto_update", true)
@@ -320,4 +354,7 @@ object P {
     val updateLastCheck = LongPref("update_last_check", 0L)
     val updateStatus = StringPref("update_status", "")
     val lastSeenVersion = StringPref("last_seen_version", "")
+
+    // The version of the terms and privacy policy you last agreed to
+    val legalAccepted = IntPref("legal_accepted", 0)
 }

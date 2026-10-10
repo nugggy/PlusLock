@@ -40,6 +40,16 @@ val chargeAnimStyles = linkedMapOf(
     "BATTERY" to "Battery: a classic battery filling with bubbles",
     "ORB" to "Orb: a glowing core sending out ripples",
     "BOLT" to "Lightning: a bolt that fills and throws sparks",
+    "VORTEX" to "Vortex: sparks spiralling into the middle",
+    "HEART" to "Heart: a heart filling up",
+    "HONEYCOMB" to "Honeycomb: cells lighting up one by one",
+    "BARS" to "Equaliser: bars dancing to your level",
+    "DNA" to "Helix: a turning double helix",
+    "WARP" to "Warp speed: stars rushing past",
+    "FIREWORKS" to "Fireworks: bursts of colour",
+    "MATRIX" to "Code rain: falling characters",
+    "ECG" to "Heartbeat: a pulse line across the screen",
+    "REACTOR" to "Reactor: spinning rings round a glowing core",
 )
 
 /** The battery state the charging effects draw from. */
@@ -317,6 +327,16 @@ private class ChargeScreenView(ctx: Context, private val onTap: () -> Unit) : Vi
             "BATTERY" -> drawBattery(c, cx, cy, r, lvl, col, blur)
             "ORB" -> drawOrb(c, cx, cy, r, lvl, col, blur)
             "BOLT" -> drawBolt(c, cx, cy, r, lvl, col, blur)
+            "VORTEX" -> drawVortex(c, cx, cy, r, lvl, col, blur)
+            "HEART" -> drawHeart(c, cx, cy, r, lvl, col, blur)
+            "HONEYCOMB" -> drawHoneycomb(c, cx, cy, r, lvl, col, blur)
+            "BARS" -> drawBars(c, cx, cy, r, lvl, col, blur)
+            "DNA" -> drawHelix(c, cx, cy, r, lvl, col)
+            "WARP" -> drawWarp(c, w, h, cx, cy, r, lvl, col)
+            "FIREWORKS" -> drawFireworks(c, cx, cy, r, col)
+            "MATRIX" -> drawCodeRain(c, w, h, r, col)
+            "ECG" -> drawEcg(c, w, cy, r, col, blur)
+            "REACTOR" -> drawReactor(c, cx, cy, r, lvl, col, blur)
             else -> drawBubble(c, w, h, cx, cy, r, lvl, col, blur)
         }
 
@@ -331,7 +351,14 @@ private class ChargeScreenView(ctx: Context, private val onTap: () -> Unit) : Vi
         val pctY = when (style) {
             "WAVE" -> (h * (1 - lvl) - r * 0.25f).coerceIn(h * 0.25f, h * 0.8f)
             "BOLT" -> cy + r * 1.45f
+            "BARS", "DNA", "ECG" -> cy - r * 0.95f
+            "HEART" -> cy + r * 0.05f
             else -> cy + r * 0.16f
+        }
+        if (showPct && style == "MATRIX") {
+            // A dark plate so the number reads over the falling code.
+            fill.shader = null; fill.maskFilter = null; fill.color = 0xCC000000.toInt()
+            c.drawRoundRect(cx - r * 0.75f, pctY - r * 0.42f, cx + r * 0.75f, pctY + r * 0.16f, r * 0.12f, r * 0.12f, fill)
         }
         if (showPct) {
             text.textSize = r * (if (style == "WAVE" || style == "BOLT") 0.5f else 0.42f)
@@ -555,6 +582,260 @@ private class ChargeScreenView(ctx: Context, private val onTap: () -> Unit) : Vi
             c.drawCircle(cx + cos(a) * d, cy + sin(a) * d, r * 0.03f * (1 - p * 0.5f), fill)
         }
         fill.alpha = 255
+    }
+
+    private fun drawVortex(c: Canvas, cx: Float, cy: Float, r: Float, lvl: Float, col: Int, blur: BlurMaskFilter?) {
+        val reach = r * 1.7f
+        fill.shader = null; fill.maskFilter = null
+        val count = (70 * particles).toInt()
+        for (i in 0 until count) {
+            val p = (t * (0.18f + 0.12f * hash(i, 4)) + hash(i, 1)) % 1f
+            val d = reach * (1f - p)
+            val a = hash(i, 2) * 2 * PI.toFloat() + p * 5f
+            fill.color = if (i % 4 == 0 && mode == "DUO") colour2 else col
+            fill.alpha = (255 * (0.2f + 0.8f * p)).toInt()
+            c.drawCircle(cx + cos(a) * d, cy + sin(a) * d, r * (0.012f + 0.03f * (1f - p)), fill)
+        }
+        fill.alpha = 255
+        rect.set(cx - r * 0.62f, cy - r * 0.62f, cx + r * 0.62f, cy + r * 0.62f)
+        line.shader = null; line.color = col; line.strokeWidth = r * 0.05f
+        if (blur != null) { halo.color = col; halo.strokeWidth = r * 0.08f; halo.maskFilter = blur; c.drawArc(rect, -90f, 360f * lvl, false, halo) }
+        c.drawArc(rect, -90f, 360f * lvl, false, line)
+    }
+
+    private fun heartPath(cx: Float, cy: Float, s: Float) {
+        path.reset()
+        path.moveTo(cx, cy + s * 0.42f)
+        path.cubicTo(cx - s * 0.62f, cy - s * 0.02f, cx - s * 0.42f, cy - s * 0.62f, cx, cy - s * 0.3f)
+        path.cubicTo(cx + s * 0.42f, cy - s * 0.62f, cx + s * 0.62f, cy - s * 0.02f, cx, cy + s * 0.42f)
+        path.close()
+    }
+
+    private fun drawHeart(c: Canvas, cx: Float, cy: Float, r: Float, lvl: Float, col: Int, blur: BlurMaskFilter?) {
+        val beat = sin(t * 6f)
+        val s = r * 2.2f * (1f + 0.03f * beat * beat * beat)
+        heartPath(cx, cy, s)
+        val outline = Path(path)
+        if (blur != null) { halo.color = col; halo.strokeWidth = r * 0.08f; halo.maskFilter = blur; c.drawPath(outline, halo) }
+        line.shader = null; line.color = col; line.strokeWidth = r * 0.05f; line.strokeJoin = Paint.Join.ROUND
+        c.drawPath(outline, line)
+        c.save()
+        c.clipPath(outline)
+        val top = cy - s * 0.42f; val bottom = cy + s * 0.42f
+        fill.maskFilter = null; fill.shader = shaderFor(top, bottom, col); fill.color = col
+        val surface = bottom - (bottom - top) * lvl
+        wave(cx - s, cx + s, surface, bottom, r * 0.04f, r * 0.8f, t * 3f)
+        c.drawPath(path, fill)
+        fill.shader = null; fill.color = Color.WHITE
+        for (i in 0 until (10 * particles).toInt()) {
+            val p = (t * 0.35f + hash(i, 1)) % 1f
+            fill.alpha = (140 * (1 - p)).toInt()
+            c.drawCircle(cx + (hash(i, 2) - 0.5f) * s * 0.6f, bottom - p * (bottom - surface), r * 0.03f, fill)
+        }
+        fill.alpha = 255
+        c.restore()
+    }
+
+    private fun drawHoneycomb(c: Canvas, cx: Float, cy: Float, r: Float, lvl: Float, col: Int, blur: BlurMaskFilter?) {
+        val cell = r * 0.22f
+        val dx = cell * 1.75f; val dy = cell * 1.52f
+        val cells = ArrayList<FloatArray>()
+        for (row in -5..5) for (k in -5..5) {
+            val x = cx + k * dx + (if (row % 2 != 0) dx / 2f else 0f)
+            val y = cy + row * dy
+            if (kotlin.math.hypot(x - cx, y - cy) <= r * 1.25f) cells += floatArrayOf(x, y)
+        }
+        // Fill from the bottom up, like a battery.
+        cells.sortByDescending { it[1] * 1000 + it[0] }
+        val lit = (cells.size * lvl).toInt()
+        cells.forEachIndexed { i, p ->
+            path.reset()
+            for (k in 0 until 6) {
+                val a = (PI / 3 * k + PI / 6).toFloat()
+                val x = p[0] + cos(a) * cell * 0.92f; val y = p[1] + sin(a) * cell * 0.92f
+                if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+            fill.shader = null
+            when {
+                i < lit -> { fill.maskFilter = blur; fill.color = if (mode == "DUO" && i % 2 == 0) colour2 else col }
+                i == lit -> { fill.maskFilter = null; fill.color = col; fill.alpha = (60 + 160 * (0.5f + 0.5f * sin(t * 5f))).toInt() }
+                else -> { fill.maskFilter = null; fill.color = 0x22FFFFFF }
+            }
+            c.drawPath(path, fill)
+        }
+        fill.maskFilter = null; fill.alpha = 255
+    }
+
+    private fun drawBars(c: Canvas, cx: Float, cy: Float, r: Float, lvl: Float, col: Int, blur: BlurMaskFilter?) {
+        val n = 17
+        val span = r * 2.8f
+        val bw = span / n * 0.62f
+        val base = cy + r * 0.9f
+        for (i in 0 until n) {
+            val x = cx - span / 2 + span * (i + 0.5f) / n
+            val bounce = 0.55f + 0.45f * kotlin.math.abs(sin(t * (2.2f + hash(i, 3)) + i * 0.7f))
+            val bh = r * 1.5f * (0.25f + 0.75f * lvl) * bounce
+            fill.maskFilter = blur
+            fill.shader = shaderFor(base - r * 1.5f, base, col); fill.color = col
+            c.drawRoundRect(x - bw / 2, base - bh, x + bw / 2, base, bw / 2, bw / 2, fill)
+            // A faint reflection below.
+            fill.shader = null; fill.maskFilter = null; fill.alpha = 50
+            c.drawRoundRect(x - bw / 2, base + r * 0.04f, x + bw / 2, base + r * 0.04f + bh * 0.3f, bw / 2, bw / 2, fill)
+            fill.alpha = 255
+        }
+        fill.maskFilter = null
+    }
+
+    private fun drawHelix(c: Canvas, cx: Float, cy: Float, r: Float, lvl: Float, col: Int) {
+        val span = r * 3f
+        val n = 26
+        line.shader = null; line.strokeWidth = r * 0.025f
+        fill.shader = null; fill.maskFilter = null
+        for (i in 0 until n) {
+            val x = cx - span / 2 + span * i / (n - 1)
+            val a = i * 0.48f + t * 2f
+            val y1 = cy + sin(a) * r * 0.55f
+            val y2 = cy - sin(a) * r * 0.55f
+            val on = i.toFloat() / n < lvl
+            line.color = if (on) col else 0x44FFFFFF; line.alpha = if (on) 140 else 40
+            c.drawLine(x, y1, x, y2, line)
+            val depth = cos(a)
+            val base = if (on) 255 else 90
+            fill.color = if (on) col else 0x66FFFFFF
+            fill.alpha = (base * (0.55f + 0.45f * depth).coerceIn(0.2f, 1f)).toInt()
+            c.drawCircle(x, y1, r * (0.05f + 0.025f * depth), fill)
+            fill.color = if (on) (if (mode == "DUO") colour2 else col) else 0x66FFFFFF
+            fill.alpha = (base * (0.55f - 0.45f * depth).coerceIn(0.2f, 1f)).toInt()
+            c.drawCircle(x, y2, r * (0.05f - 0.025f * depth), fill)
+        }
+        fill.alpha = 255; line.alpha = 255
+    }
+
+    private fun drawWarp(c: Canvas, w: Float, h: Float, cx: Float, cy: Float, r: Float, lvl: Float, col: Int) {
+        val maxD = kotlin.math.hypot(w, h) / 2f
+        line.shader = null
+        val count = (90 * particles).toInt()
+        for (i in 0 until count) {
+            val p = (t * (0.35f + 0.3f * hash(i, 4)) + hash(i, 1)) % 1f
+            val a = hash(i, 2) * 2 * PI.toFloat()
+            val d = maxD * p * p
+            val d0 = d * 0.82f
+            line.color = if (i % 5 == 0) col else Color.WHITE
+            line.alpha = (255 * p).toInt()
+            line.strokeWidth = r * 0.01f + r * 0.025f * p
+            c.drawLine(cx + cos(a) * d0, cy + sin(a) * d0, cx + cos(a) * d, cy + sin(a) * d, line)
+        }
+        line.alpha = 255
+        rect.set(cx - r * 0.7f, cy - r * 0.7f, cx + r * 0.7f, cy + r * 0.7f)
+        line.color = col; line.strokeWidth = r * 0.05f
+        c.drawArc(rect, -90f, 360f * lvl, false, line)
+    }
+
+    private fun drawFireworks(c: Canvas, cx: Float, cy: Float, r: Float, col: Int) {
+        fill.shader = null; fill.maskFilter = null
+        val bursts = (5 * particles.coerceAtLeast(0.2f)).toInt().coerceAtLeast(1)
+        val sparks = 26
+        for (b in 0 until bursts) {
+            val cycle = t * 0.45f + hash(b, 7)
+            val p = cycle % 1f
+            val gen = cycle.toInt()
+            val ox = cx + (hash(b + gen * 13, 1) - 0.5f) * r * 2.6f
+            val oy = cy + (hash(b + gen * 13, 2) - 0.6f) * r * 2.2f
+            val hue = hash(b + gen * 13, 3) * 360f
+            val bc = if (mode == "LEVEL" || mode == "CUSTOM") col else Color.HSVToColor(floatArrayOf(hue, 0.7f, 1f))
+            for (k in 0 until sparks) {
+                val a = k * 2 * PI.toFloat() / sparks
+                val d = r * 0.9f * (1 - (1 - p) * (1 - p))
+                fill.color = bc; fill.alpha = (255 * (1 - p)).toInt()
+                c.drawCircle(ox + cos(a) * d, oy + sin(a) * d + r * 0.5f * p * p, r * 0.025f * (1.2f - p), fill)
+            }
+        }
+        fill.alpha = 255
+    }
+
+    private val glyphs = "01アイウエオカキクケコ23456789ABCDEF<>*+="
+    private val code = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; textAlign = Paint.Align.CENTER }
+
+    private fun drawCodeRain(c: Canvas, w: Float, h: Float, r: Float, col: Int) {
+        val size = r * 0.13f
+        code.textSize = size
+        val cols = (w / (size * 1.1f)).toInt()
+        val trail = 16
+        for (k in 0 until cols) {
+            if (hash(k, 9) > 0.35f + 0.65f * particles.coerceAtMost(1f)) continue
+            val speed = 0.18f + 0.25f * hash(k, 4)
+            val head = ((t * speed + hash(k, 1)) % 1.3f) * h
+            val x = (k + 0.5f) * size * 1.1f
+            for (j in 0 until trail) {
+                val y = head - j * size * 1.05f
+                if (y < -size || y > h + size) continue
+                val seed = k * 31 + (y / size).toInt() * 17 + (if (j % 3 == 0) (t * 3).toInt() else 0)
+                val ch = glyphs[((seed % glyphs.length) + glyphs.length) % glyphs.length]
+                code.color = if (j == 0) Color.WHITE else col
+                code.alpha = (255 * (1f - j.toFloat() / trail)).toInt()
+                c.drawText(ch.toString(), x, y, code)
+            }
+        }
+    }
+
+    private fun drawEcg(c: Canvas, w: Float, cy: Float, r: Float, col: Int, blur: BlurMaskFilter?) {
+        val beat = r * 1.6f
+        fun ecg(x: Float): Float {
+            val p = (((x / beat) % 1f) + 1f) % 1f
+            return when {
+                p < 0.08f -> -0.08f * sin(p / 0.08f * PI.toFloat())
+                p in 0.16f..0.2f -> 0.18f * (p - 0.16f) / 0.04f
+                p in 0.2f..0.24f -> 0.18f - 1.3f * (p - 0.2f) / 0.04f
+                p in 0.24f..0.28f -> -1.12f + 1.5f * (p - 0.24f) / 0.04f
+                p in 0.28f..0.31f -> 0.38f - 0.38f * (p - 0.28f) / 0.03f
+                p in 0.42f..0.56f -> -0.22f * sin((p - 0.42f) / 0.14f * PI.toFloat())
+                else -> 0f
+            } * r * 0.6f
+        }
+        val base = cy + r * 0.25f
+        val head = (t * r * 1.1f) % w
+        path.reset()
+        var x = 0f
+        path.moveTo(0f, base + ecg(0f))
+        while (x <= w) { x += 4f; path.lineTo(x, base + ecg(x)) }
+        // Brightest just behind the moving head, fading further back.
+        val fade = LinearGradient(head - w * 0.8f, 0f, head, 0f, intArrayOf(Color.TRANSPARENT, col), null, Shader.TileMode.CLAMP)
+        line.shader = fade; line.strokeWidth = r * 0.035f; line.strokeJoin = Paint.Join.ROUND
+        c.save()
+        c.clipRect(0f, 0f, head, height.toFloat())
+        if (blur != null) { halo.shader = fade; halo.strokeWidth = r * 0.07f; halo.maskFilter = blur; c.drawPath(path, halo); halo.shader = null }
+        c.drawPath(path, line)
+        c.restore()
+        line.shader = null
+        fill.shader = null; fill.maskFilter = null; fill.color = Color.WHITE
+        c.drawCircle(head, base + ecg(head), r * 0.045f, fill)
+    }
+
+    private fun drawReactor(c: Canvas, cx: Float, cy: Float, r: Float, lvl: Float, col: Int, blur: BlurMaskFilter?) {
+        line.shader = null
+        val rings = listOf(Triple(1.15f, 18, 1f), Triple(0.95f, 10, -1.6f), Triple(0.76f, 6, 2.3f))
+        rings.forEachIndexed { k, (scale, segs, spin) ->
+            val rr = r * scale
+            rect.set(cx - rr, cy - rr, cx + rr, cy + rr)
+            line.color = if (k == 1 && mode == "DUO") colour2 else col
+            line.alpha = 200 - k * 40
+            line.strokeWidth = r * (0.05f - k * 0.01f)
+            val step = 360f / segs
+            for (i in 0 until segs) c.drawArc(rect, t * 40f * spin + i * step, step * 0.62f, false, line)
+        }
+        line.alpha = 255
+        rect.set(cx - r * 0.58f, cy - r * 0.58f, cx + r * 0.58f, cy + r * 0.58f)
+        line.color = col; line.strokeWidth = r * 0.06f
+        if (blur != null) { halo.color = col; halo.strokeWidth = r * 0.1f; halo.maskFilter = blur; c.drawArc(rect, -90f, 360f * lvl, false, halo) }
+        c.drawArc(rect, -90f, 360f * lvl, false, line)
+        val core = r * 0.48f * (1f + 0.05f * sin(t * 4f))
+        fill.maskFilter = null
+        fill.shader = RadialGradient(cx, cy, core,
+            intArrayOf(0x66FFFFFF, Color.argb(90, Color.red(col), Color.green(col), Color.blue(col)), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
+        c.drawCircle(cx, cy, core, fill)
+        fill.shader = null
     }
 
     /** A lightning bolt centred on (cx, cy), size tall. Leaves it in [path]. */

@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -19,17 +20,54 @@ import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.SoundMode
 import kotlin.math.roundToInt
 
+/** Every volume the panel can show, in the order it shows them. */
+val volumeStreams = linkedMapOf(
+    "MUSIC" to "Media",
+    "RING" to "Ringtone",
+    "NOTIFICATION" to "Notifications",
+    "ALARM" to "Alarms",
+    "CALL" to "Calls",
+    "SYSTEM" to "System sounds",
+)
+
+private fun streamOf(key: String) = when (key) {
+    "MUSIC" -> AudioManager.STREAM_MUSIC
+    "RING" -> AudioManager.STREAM_RING
+    "NOTIFICATION" -> AudioManager.STREAM_NOTIFICATION
+    "ALARM" -> AudioManager.STREAM_ALARM
+    "CALL" -> AudioManager.STREAM_VOICE_CALL
+    else -> AudioManager.STREAM_SYSTEM
+}
+
+private fun shortLabel(stream: Int) = when (stream) {
+    AudioManager.STREAM_MUSIC -> "Media"
+    AudioManager.STREAM_RING -> "Ring"
+    AudioManager.STREAM_NOTIFICATION -> "Alerts"
+    AudioManager.STREAM_ALARM -> "Alarm"
+    AudioManager.STREAM_VOICE_CALL -> "Call"
+    else -> "System"
+}
+
+private val rainbow = intArrayOf(0xFF7FB2FF.toInt(), 0xFF4BE38A.toInt(), 0xFFFFC75E.toInt(), 0xFFFF6BE0.toInt(), 0xFF5EE4FF.toInt(), 0xFFB388FF.toInt())
+
 /**
  * Pimp my Phone's own volume panel, shown instead of the system one when it's switched on.
- * One slider for whatever the buttons control; tap the dots for all four.
+ * The buttons move one slider; the dots show the rest of the volumes you've chosen.
  */
 class VolumePanel(private val svc: PlusAccessibilityService) {
     private val am = svc.getSystemService(AudioManager::class.java)
     private var view: PanelRoot? = null
     private val hideRunnable = Runnable { hide() }
 
-    /** Media while something plays, otherwise the ringtone, like the system panel. */
-    private fun activeStream() = if (am.isMusicActive) AudioManager.STREAM_MUSIC else AudioManager.STREAM_RING
+    /** Which volume the buttons move. */
+    private fun activeStream() = when {
+        am.mode == AudioManager.MODE_IN_CALL || am.mode == AudioManager.MODE_IN_COMMUNICATION -> AudioManager.STREAM_VOICE_CALL
+        P.volPanelButtons.value == "MUSIC" -> AudioManager.STREAM_MUSIC
+        P.volPanelButtons.value == "RING" -> AudioManager.STREAM_RING
+        // Media while something plays, otherwise the ringtone, like the system panel.
+        am.isMusicActive -> AudioManager.STREAM_MUSIC
+        else -> AudioManager.STREAM_RING
+    }
 
     fun adjust(direction: Int) {
         val stream = activeStream()
@@ -40,6 +78,9 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
         if (direction == AudioManager.ADJUST_RAISE && am.getStreamVolume(stream) == before && before < am.getStreamMaxVolume(stream)) {
             runCatching { am.adjustStreamVolume(stream, direction, AudioManager.FLAG_SHOW_UI) }
             return
+        }
+        if (P.volPanelHaptic.value && am.getStreamVolume(stream) != before) {
+            view?.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         }
         show(stream)
     }
@@ -54,7 +95,7 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
 
     private fun bumpHide() {
         svc.handler.removeCallbacks(hideRunnable)
-        svc.handler.postDelayed(hideRunnable, 3_000)
+        svc.handler.postDelayed(hideRunnable, P.volPanelTimeout.value * 1000L)
     }
 
     private fun create(stream: Int): PanelRoot? {
@@ -64,8 +105,8 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         val right = P.volPanelSide.value != "LEFT"
         lp.gravity = (if (right) Gravity.END else Gravity.START) or Gravity.CENTER_VERTICAL
-        lp.x = svc.dp(12f).toInt()
-        lp.y = -b.height() / 10
+        lp.x = svc.dp(P.volPanelMargin.value.toFloat()).toInt()
+        lp.y = b.height() * P.volPanelOffset.value / 100
         if (!svc.addOverlay(v, lp)) return null
         view = v
         return v
@@ -74,6 +115,12 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
     private fun relayout(v: View) {
         val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
         runCatching { svc.wm.updateViewLayout(v, lp) }
+    }
+
+    /** Shows the panel from settings so changes can be seen straight away. */
+    fun preview() {
+        view?.let { svc.removeOverlay(it); view = null }
+        show(activeStream())
     }
 
     fun hide() {
@@ -97,35 +144,53 @@ private class PanelRoot(
 ) : LinearLayout(ctx) {
     private val d = resources.displayMetrics.density
     private val sliders = mutableListOf<VSlider>()
-    private val extra = LinearLayout(ctx).apply { orientation = HORIZONTAL; visibility = GONE }
-    private val modeChip: TextView
+    private val horizontal = P.volPanelLayout.value == "HORIZONTAL"
+    private val extra = LinearLayout(ctx).apply {
+        orientation = if (horizontal) VERTICAL else HORIZONTAL
+        visibility = if (P.volPanelExpanded.value) VISIBLE else GONE
+    }
+    private val modeChip: TextView?
+    private val light = P.volPanelStyle.value == "LIGHT"
+    private val textColour = if (light) 0xFF15171C.toInt() else Color.WHITE
 
     init {
         orientation = VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         setPadding((10 * d).toInt(), (12 * d).toInt(), (10 * d).toInt(), (10 * d).toInt())
-        background = GradientDrawable().apply { cornerRadius = 30 * d; setColor(0xF0121418.toInt()) }
+        val accent = P.volPanelColour.value
+        val bg = when (P.volPanelStyle.value) {
+            "BLACK" -> 0xFF000000.toInt()
+            "GLASS" -> 0x99202228.toInt()
+            "LIGHT" -> 0xFFF2F3F7.toInt()
+            "TINT" -> Color.rgb(Color.red(accent) / 6, Color.green(accent) / 6, Color.blue(accent) / 6)
+            else -> 0xFF121418.toInt()
+        }
+        background = GradientDrawable().apply {
+            cornerRadius = P.volPanelCorner.value * d
+            setColor(bg)
+            if (P.volPanelStyle.value == "BLACK" || P.volPanelStyle.value == "GLASS") setStroke((1 * d).toInt(), 0x33FFFFFF)
+        }
+        val targetAlpha = P.volPanelOpacity.value / 100f
         alpha = 0f
-        animate().alpha(1f).setDuration(150).start()
+        animate().alpha(targetAlpha).setDuration(150).start()
 
-        modeChip = TextView(ctx).apply {
-            textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+        modeChip = if (!P.volPanelModeChip.value) null else TextView(ctx).apply {
+            textSize = 11f; setTextColor(textColour); gravity = Gravity.CENTER
             setPadding((8 * d).toInt(), (4 * d).toInt(), (8 * d).toInt(), (4 * d).toInt())
-            background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(0x22FFFFFF) }
+            background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(if (light) 0x14000000 else 0x22FFFFFF) }
             setOnClickListener { SoundMode.cycle(ctx); refresh(); onTouch() }
         }
-        addView(modeChip, LayoutParams(-2, -2).apply { bottomMargin = (10 * d).toInt() })
+        modeChip?.let { addView(it, LayoutParams(-2, -2).apply { bottomMargin = (10 * d).toInt() }) }
 
-        val row = LinearLayout(ctx).apply { orientation = HORIZONTAL }
-        row.addView(column(main, labelFor(main)))
-        listOf(AudioManager.STREAM_MUSIC, AudioManager.STREAM_RING, AudioManager.STREAM_NOTIFICATION, AudioManager.STREAM_ALARM)
-            .filter { it != main }
-            .forEach { extra.addView(column(it, labelFor(it))) }
+        val chosen = P.volPanelStreams.value.split(',').filter { it in volumeStreams }.map(::streamOf)
+        val row = LinearLayout(ctx).apply { orientation = if (horizontal) VERTICAL else HORIZONTAL }
+        row.addView(column(main, 0))
+        chosen.filter { it != main }.forEachIndexed { i, s -> extra.addView(column(s, i + 1)) }
         row.addView(extra)
         addView(row)
 
-        addView(TextView(ctx).apply {
-            text = "• • •"; setTextColor(0x99FFFFFF.toInt()); textSize = 12f; gravity = Gravity.CENTER
+        if (extra.childCount > 0 && !P.volPanelExpanded.value) addView(TextView(ctx).apply {
+            text = "• • •"; setTextColor(if (light) 0x99000000.toInt() else 0x99FFFFFF.toInt()); textSize = 12f; gravity = Gravity.CENTER
             setPadding(0, (8 * d).toInt(), 0, 0)
             setOnClickListener {
                 extra.visibility = if (extra.visibility == VISIBLE) GONE else VISIBLE
@@ -135,29 +200,34 @@ private class PanelRoot(
         refresh()
     }
 
-    private fun labelFor(stream: Int) = when (stream) {
-        AudioManager.STREAM_MUSIC -> "Media"
-        AudioManager.STREAM_RING -> "Ring"
-        AudioManager.STREAM_NOTIFICATION -> "Alerts"
-        else -> "Alarm"
-    }
-
-    private fun column(stream: Int, label: String) = LinearLayout(context).apply {
-        orientation = VERTICAL
-        gravity = Gravity.CENTER_HORIZONTAL
-        val s = VSlider(context, am, stream) { onTouch(); refresh() }
+    private fun column(stream: Int, index: Int) = LinearLayout(context).apply {
+        orientation = if (horizontal) HORIZONTAL else VERTICAL
+        gravity = if (horizontal) Gravity.CENTER_VERTICAL else Gravity.CENTER_HORIZONTAL
+        val colour = if (P.volPanelRainbow.value) rainbow[index % rainbow.size] else P.volPanelColour.value
+        val s = VSlider(context, am, stream, colour, horizontal, light) { onTouch(); refresh() }
         sliders += s
-        addView(s, LayoutParams((44 * d).toInt(), (190 * d).toInt()))
-        addView(TextView(context).apply {
-            text = label; textSize = 11f; setTextColor(0xCCFFFFFF.toInt()); gravity = Gravity.CENTER
-            setPadding(0, (6 * d).toInt(), 0, 0)
-        })
-        setPadding((4 * d).toInt(), 0, (4 * d).toInt(), 0)
+        val label = if (!P.volPanelLabels.value) null else TextView(context).apply {
+            text = shortLabel(stream); textSize = 11f; setTextColor(if (light) 0xCC000000.toInt() else 0xCCFFFFFF.toInt()); gravity = Gravity.CENTER
+            if (horizontal) setPadding(0, 0, (8 * d).toInt(), 0) else setPadding(0, (6 * d).toInt(), 0, 0)
+            // Tap the name to mute, tap again to bring it back.
+            if (P.volPanelTapMute.value) setOnClickListener { s.toggleMute(); onTouch(); refresh() }
+        }
+        val thick = (P.volPanelWidth.value * d).toInt()
+        val long = (P.volPanelHeight.value * d).toInt()
+        if (horizontal) {
+            label?.let { addView(it, LayoutParams((52 * d).toInt(), -2)) }
+            addView(s, LayoutParams(long, thick))
+            setPadding(0, (4 * d).toInt(), 0, (4 * d).toInt())
+        } else {
+            addView(s, LayoutParams(thick, long))
+            label?.let { addView(it) }
+            setPadding((4 * d).toInt(), 0, (4 * d).toInt(), 0)
+        }
     }
 
     fun refresh() {
         sliders.forEach { it.invalidate() }
-        modeChip.text = SoundMode.label(am.ringerMode)
+        modeChip?.text = SoundMode.label(am.ringerMode)
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -168,29 +238,65 @@ private class PanelRoot(
 }
 
 @SuppressLint("ViewConstructor")
-private class VSlider(ctx: Context, private val am: AudioManager, private val stream: Int, private val onChange: () -> Unit) : View(ctx) {
+private class VSlider(
+    ctx: Context,
+    private val am: AudioManager,
+    private val stream: Int,
+    colour: Int,
+    private val horizontal: Boolean,
+    light: Boolean,
+    private val onChange: () -> Unit,
+) : View(ctx) {
     private val d = resources.displayMetrics.density
-    private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x26FFFFFF }
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF7FB2FF.toInt() }
+    private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (light) 0x1F000000 else 0x26FFFFFF }
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colour }
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF0A0C12.toInt(); textSize = 11 * d; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER
+        textSize = 11 * d; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER
     }
+    private val numbers = P.volPanelNumbers.value
+    private val haptic = P.volPanelHaptic.value
     private val min = am.getStreamMinVolume(stream)
     private val max = am.getStreamMaxVolume(stream).coerceAtLeast(min + 1)
+    private var beforeMute = -1
+    private val rect = RectF()
 
     private fun fraction() = (am.getStreamVolume(stream) - min).toFloat() / (max - min)
 
+    fun toggleMute() {
+        val now = am.getStreamVolume(stream)
+        if (now > min) { beforeMute = now; set(min) } else set(if (beforeMute > min) beforeMute else (min + max) / 2)
+    }
+
+    private fun set(idx: Int) {
+        if (idx == am.getStreamVolume(stream)) return
+        runCatching { am.setStreamVolume(stream, idx, 0) }
+        if (haptic) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        invalidate()
+    }
+
     override fun onDraw(c: Canvas) {
-        val r = RectF(0f, 0f, width.toFloat(), height.toFloat())
-        c.drawRoundRect(r, width / 2f, width / 2f, track)
+        rect.set(0f, 0f, width.toFloat(), height.toFloat())
+        val corner = minOf(width, height) / 2f
+        c.drawRoundRect(rect, corner, corner, track)
         val f = fraction()
-        val top = height * (1 - f)
         c.save()
-        c.clipRect(0f, top, width.toFloat(), height.toFloat())
-        c.drawRoundRect(r, width / 2f, width / 2f, fill)
+        if (horizontal) c.clipRect(0f, 0f, width * f, height.toFloat())
+        else c.clipRect(0f, height * (1 - f), width.toFloat(), height.toFloat())
+        c.drawRoundRect(rect, corner, corner, fill)
         c.restore()
-        label.color = if (f > 0.12f) 0xFF0A0C12.toInt() else Color.WHITE
-        c.drawText("${(f * 100).roundToInt()}", width / 2f, height - 12 * d, label)
+        val text = when (numbers) {
+            "NONE" -> return
+            "STEPS" -> "${am.getStreamVolume(stream)}"
+            else -> "${(f * 100).roundToInt()}"
+        }
+        val onFill = if (horizontal) f > 0.25f else f > 0.12f
+        label.color = if (onFill) 0xFF0A0C12.toInt() else Color.WHITE
+        if (horizontal) {
+            label.textAlign = Paint.Align.LEFT
+            c.drawText(text, 10 * d, height / 2f + label.textSize / 3, label)
+        } else {
+            c.drawText(text, width / 2f, height - 12 * d, label)
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -198,12 +304,8 @@ private class VSlider(ctx: Context, private val am: AudioManager, private val st
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 parent?.requestDisallowInterceptTouchEvent(true)
-                val f = (1 - e.y / height).coerceIn(0f, 1f)
-                val idx = (min + f * (max - min)).roundToInt()
-                if (idx != am.getStreamVolume(stream)) {
-                    runCatching { am.setStreamVolume(stream, idx, 0) }
-                    invalidate()
-                }
+                val f = if (horizontal) (e.x / width).coerceIn(0f, 1f) else (1 - e.y / height).coerceIn(0f, 1f)
+                set((min + f * (max - min)).roundToInt())
                 onChange()
             }
         }

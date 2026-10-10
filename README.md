@@ -84,6 +84,8 @@ You need JDK 17 or later and the Android SDK (platform 36).
 .\gradlew assembleRelease   # needs keystore.properties (git-ignored) pointing at the signing key
 ```
 
-## Privacy
+## Privacy, terms and licence
+
+The full [privacy policy](PRIVACY.md) and [terms of use](TERMS.md) are in this repo and in the app under Legal and about. The code is under the [MIT licence](LICENSE).
 
 Pimp my Phone has no analytics and no accounts. It makes two kinds of network request: the update check to GitHub's public API, and, only if you turn on real weather for the wallpaper, a request to Open-Meteo about once an hour with your location rounded to roughly 1 km. The accessibility service listens only for which app is in front. It never reads what's on the screen. If you turn on volume-button track skipping, it also sees volume key presses, and nothing else.

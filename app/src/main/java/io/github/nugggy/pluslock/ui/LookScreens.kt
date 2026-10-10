@@ -70,8 +70,8 @@ fun LookScreen(nav: Nav, resumeTick: Int) {
         if (island) item { Note("Music needs notification access. The island hides in landscape, and covers the camera ring while it's showing.") }
         item {
             Section("Volume panel") {
-                PrefSwitch(P.volPanelOn, "Pimp my Phone volume panel", "Replaces the system volume slider. Tap the dots for media, ring, alerts and alarm.")
-                if (volPanel) PrefChoice(P.volPanelSide, "Side", mapOf("RIGHT" to "Right", "LEFT" to "Left"))
+                PrefSwitch(P.volPanelOn, "Pimp my Phone volume panel", "Replaces the system volume slider")
+                Row2("Customise the volume panel", "Which volumes to show, volume boost, colours, size and style", onClick = { nav.go(Screen.VolumePanel) })
             }
         }
         if (volPanel) item { Note("Works with the screen on. During calls the system panel is used, so call volume always behaves as normal.") }
