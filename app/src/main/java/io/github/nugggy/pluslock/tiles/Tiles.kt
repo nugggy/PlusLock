@@ -13,6 +13,7 @@ import io.github.nugggy.pluslock.R
 import io.github.nugggy.pluslock.core.Caffeine
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Prefs
+import io.github.nugggy.pluslock.core.Silence
 import io.github.nugggy.pluslock.core.SoundMode
 import io.github.nugggy.pluslock.service.PlusAccessibilityService
 import io.github.nugggy.pluslock.ui.DeckActivity
@@ -132,4 +133,16 @@ class GesturesTile : BaseTile() {
 
     override fun render() =
         set(if (P.gesturesOn.value) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE, if (P.gesturesOn.value) "On" else "Off")
+}
+
+class PauseLightingTile : BaseTile() {
+    override fun onClick() {
+        Silence.cycle()
+        render()
+    }
+
+    override fun render() {
+        val label = Silence.tileLabel()
+        set(if (label != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE, label ?: "Off")
+    }
 }

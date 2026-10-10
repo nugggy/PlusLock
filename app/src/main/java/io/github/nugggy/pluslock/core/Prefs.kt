@@ -95,6 +95,9 @@ object P {
     val lightingPill = BoolPref("lighting_pill", true)
     val lightingPillSize = IntPref("lighting_pill_size_pct", 130)
     val lightingRespectDnd = BoolPref("lighting_dnd", true)
+    val lightingLandscapeOff = BoolPref("lighting_landscape_off", false)
+    val lightingSilenceUntil = LongPref("lighting_silence_until", 0L) // 0 off, -1 until resumed, else epoch ms
+    val lightingSilenceApp = StringPref("lighting_silence_app", "")
     val chargingGlow = BoolPref("charging_glow", true)
     val lightingShape = StringPref("lighting_shape", "EDGE") // EDGE, TOP, CAMERA
     val lightingQuietOn = BoolPref("lighting_quiet_on", false)

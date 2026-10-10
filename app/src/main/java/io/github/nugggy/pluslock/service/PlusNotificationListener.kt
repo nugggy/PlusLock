@@ -21,6 +21,7 @@ import io.github.nugggy.pluslock.core.Hours
 import io.github.nugggy.pluslock.core.Notifs
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Prefs
+import io.github.nugggy.pluslock.core.Silence
 import io.github.nugggy.pluslock.data.LightingRules
 import io.github.nugggy.pluslock.data.NotificationStore
 import io.github.nugggy.pluslock.data.Profiles
@@ -127,7 +128,8 @@ class PlusNotificationListener : NotificationListenerService() {
         val shownTitle = if (hideText) n.publicVersion?.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: app else title
         val shownText = if (hideText) n.publicVersion?.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: "New notification" else latest.body
         val quiet = P.lightingQuietOn.value && Hours.inWindow(P.lightingQuietStart.value, P.lightingQuietEnd.value)
-        val lightingAllowed = !(dnd && P.lightingRespectDnd.value) && !quiet
+        val paused = Silence.isActive(svc?.foregroundPkg.orEmpty()) || (P.lightingLandscapeOff.value && svc?.isLandscape == true)
+        val lightingAllowed = !(dnd && P.lightingRespectDnd.value) && !quiet && !paused
         if (svc != null && P.lightingOn.value && profile?.noLighting != true && (lightingAllowed || breakThrough)) {
             val rule = LightingRules.find(latest.title, latest.body)
             val colour = rule?.colour?.takeIf { it != 0 } ?: colourFor(pkg, n, profile?.edgeColour ?: 0)
@@ -198,7 +200,8 @@ class PlusNotificationListener : NotificationListenerService() {
         val svc = PlusAccessibilityService.instance
         val quiet = P.lightingQuietOn.value && Hours.inWindow(P.lightingQuietStart.value, P.lightingQuietEnd.value)
         val dnd = currentInterruptionFilter > NotificationManager.INTERRUPTION_FILTER_ALL
-        if (colour != null && svc != null && P.lightingOn.value && !quiet && !(dnd && P.lightingRespectDnd.value)) {
+        val paused = svc != null && (Silence.isActive(svc.foregroundPkg) || (P.lightingLandscapeOff.value && svc.isLandscape))
+        if (colour != null && svc != null && P.lightingOn.value && !quiet && !paused && !(dnd && P.lightingRespectDnd.value)) {
             svc.lighting.show(LightAlert(colour, effect = "PULSE", reminder = true))
         }
         scheduleReminder()

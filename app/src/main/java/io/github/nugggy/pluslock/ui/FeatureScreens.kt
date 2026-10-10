@@ -46,7 +46,9 @@ import io.github.nugggy.pluslock.core.Haptics
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Side
 import io.github.nugggy.pluslock.core.Swipe
+import io.github.nugggy.pluslock.core.Silence
 import io.github.nugggy.pluslock.core.Torch
+import androidx.compose.runtime.produceState
 import io.github.nugggy.pluslock.data.LightingRule
 import io.github.nugggy.pluslock.data.LightingRules
 import io.github.nugggy.pluslock.service.LightAlert
@@ -201,11 +203,13 @@ fun LightingScreen(nav: Nav) {
                 PrefSlider(P.lightingDuration, "How long", 2..15) { "$it s" }
             }
         }
+        item { PauseSection() }
         item {
             Section("Colour and timing") {
                 PrefSwitch(P.lightingAppColour, "Use each app's colour", "Taken from the app's brand colour or icon")
                 if (!appColour) ColourRow("Colour", colour) { P.lightingColour.value = it }
                 PrefSwitch(P.lightingRespectDnd, "Stay dark in Do Not Disturb")
+                PrefSwitch(P.lightingLandscapeOff, "Stay dark in landscape", "Keeps videos and games clear")
                 PrefSwitch(P.lightingQuietOn, "Quiet hours", "No glow during these hours, Do Not Disturb or not")
                 if (quiet) {
                     HourRow("From", P.lightingQuietStart)
@@ -227,7 +231,7 @@ fun LightingScreen(nav: Nav) {
                     PrefChoice(P.bubbleStyle, "Style", linkedMapOf(
                         "DARK" to "Dark", "LIGHT" to "Light", "GLASS" to "Glass: see-through", "APP" to "The app's colour",
                     ))
-                    PrefSwitch(P.bubbleTapToOpen, "Tap to open", "Opens the message. Swipe the bubble away to dismiss it.")
+                    PrefSwitch(P.bubbleTapToOpen, "Tap to open", "Opens the message. Swipe the bubble sideways to dismiss it, or long-press it to pause bubbles for a while.")
                     PrefSwitch(P.bubbleReply, "Quick reply", "A Reply button for apps that support it, such as WhatsApp and Messages")
                     PrefSwitch(P.bubbleGroup, "Group messages", "A burst from one chat updates one bubble with a count")
                 }
@@ -254,6 +258,29 @@ fun LightingScreen(nav: Nav) {
         item { LightingRulesSection() }
         item { Note("Per-app colours and opt-outs live in App profiles.") }
     }
+}
+
+@Composable
+private fun PauseSection() {
+    val ctx = LocalContext.current
+    val until by P.lightingSilenceUntil.observe()
+    val app by P.lightingSilenceApp.observe()
+    // Re-read once a minute so a timed pause ends on screen too.
+    val tick by produceState(0) { while (true) { kotlinx.coroutines.delay(30_000); value++ } }
+    val status = remember(until, app, tick) { Silence.describe(ctx) }
+    Section("Pause") {
+        if (status != null) {
+            Row2(status, null) { TextButton(onClick = { Silence.resume() }) { Text("Resume") } }
+        } else {
+            Row2("Pause bubbles and glow", "Notifications still arrive, PlusLock just stays dark")
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { Silence.forMinutes(30) }, modifier = Modifier.weight(1f)) { Text("30 min") }
+                FilledTonalButton(onClick = { Silence.forMinutes(60) }, modifier = Modifier.weight(1f)) { Text("1 hour") }
+                FilledTonalButton(onClick = { Silence.untilResumed() }, modifier = Modifier.weight(1f)) { Text("Until on") }
+            }
+        }
+    }
+    Note("You can also long-press a bubble, add the Pause lighting tile to Quick Settings, or set an edge gesture to Pause edge lighting.")
 }
 
 @Composable

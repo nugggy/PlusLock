@@ -36,7 +36,7 @@ class NotificationBubble(
 
     fun attach() {
         val screen = svc.screenBounds()
-        val v = BubbleView(svc, alert, screen.width(), ::onTap, ::onReply, ::onSwiped, onTouching)
+        val v = BubbleView(svc, alert, screen.width(), ::onTap, ::onReply, ::onSwiped, ::onLongPress, onTouching)
         val (w, h) = v.measureFor(screen.width())
         val lp = svc.overlayParams(w, h, touchable = true)
         lp.x = (screen.width() - w) / 2
@@ -97,6 +97,12 @@ class NotificationBubble(
     }
 
     private fun onSwiped() = onGone()
+
+    private fun onLongPress() {
+        val y = (view?.layoutParams as? android.view.WindowManager.LayoutParams)?.y ?: topInset.toInt()
+        SilenceMenu.show(svc, y)
+        onGone()
+    }
 }
 
 @SuppressLint("ViewConstructor")
@@ -107,6 +113,7 @@ private class BubbleView(
     private val onTap: () -> Unit,
     private val onReply: () -> Unit,
     private val onSwiped: () -> Unit,
+    private val onLongPress: () -> Unit,
     private val onTouching: (Boolean) -> Unit,
 ) : View(ctx) {
     private val density = resources.displayMetrics.density
@@ -253,6 +260,14 @@ private class BubbleView(
     private var downX = 0f
     private var downY = 0f
     private var moved = false
+    private var longPressed = false
+    private val longPress = Runnable {
+        if (!moved && !detaching) {
+            longPressed = true
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            onLongPress()
+        }
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
@@ -260,17 +275,21 @@ private class BubbleView(
         val slop = 10 * density
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = e.rawX; downY = e.rawY; moved = false
+                downX = e.rawX; downY = e.rawY; moved = false; longPressed = false
                 onTouching(true)
                 animate().cancel()
+                postDelayed(longPress, android.view.ViewConfiguration.getLongPressTimeout().toLong())
             }
             MotionEvent.ACTION_MOVE -> {
+                if (longPressed) return true
                 val dx = e.rawX - downX; val dy = e.rawY - downY
-                if (abs(dx) > slop || abs(dy) > slop) moved = true
+                if (abs(dx) > slop || abs(dy) > slop) { moved = true; removeCallbacks(longPress) }
                 if (abs(dx) > abs(dy)) { translationX = dx; alpha = (1f - abs(dx) / width).coerceIn(0.2f, 1f) }
                 else translationY = dy * 0.6f
             }
             MotionEvent.ACTION_UP -> {
+                removeCallbacks(longPress)
+                if (longPressed) return true
                 val dx = e.rawX - downX; val dy = e.rawY - downY
                 val away = if (P.bubblePosition.value == "BOTTOM") dy > bubbleH * 0.5f else dy < -bubbleH * 0.5f
                 when {
@@ -285,6 +304,7 @@ private class BubbleView(
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
+                removeCallbacks(longPress)
                 animate().translationX(0f).translationY(0f).alpha(1f).setDuration(160).start()
                 onTouching(false)
             }

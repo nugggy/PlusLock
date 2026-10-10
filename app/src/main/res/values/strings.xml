@@ -12,4 +12,5 @@
     <string name="tile_sound">Sound mode</string>
     <string name="tile_deck">Control deck</string>
     <string name="tile_gestures">Edge gestures</string>
+    <string name="tile_pause_lighting">Pause lighting</string>
 </resources>

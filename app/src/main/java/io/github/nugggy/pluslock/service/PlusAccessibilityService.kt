@@ -21,6 +21,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Prefs
+import io.github.nugggy.pluslock.core.Silence
 import io.github.nugggy.pluslock.core.Torch
 
 /**
@@ -171,6 +172,7 @@ class PlusAccessibilityService : AccessibilityService() {
         statusTap.resume()
         if (pkg == foregroundPkg) return
         foregroundPkg = pkg
+        Silence.onForeground(pkg)
         profiles.onForeground(pkg)
     }
 
