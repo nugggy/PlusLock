@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AutoMode
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.SettingsBackupRestore
+import androidx.compose.material.icons.rounded.ViewSidebar
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -97,6 +101,8 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
             Section("Touch and gestures") {
                 Module(Icons.Rounded.Swipe, "Gestures", "Edge handles, back tap, shake for torch, status bar double-tap", null) { nav.go(Screen.Gestures) }
                 Module(Icons.Rounded.Tune, "Control deck and tiles", "Volume mixer, torch brightness, caffeine, Quick Settings tiles", null) { nav.go(Screen.Deck) }
+                Module(Icons.Rounded.ViewSidebar, "Side panel", "Favourite apps, people and toggles from the edge", null) { nav.go(Screen.Panel) }
+                Module(Icons.Rounded.AutoMode, "Routines", "When something happens, do a few things for you", P.routinesOn) { nav.go(Screen.Routines) }
             }
         }
         item {
@@ -104,7 +110,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
                 Module(Icons.Rounded.WbIridescent, "Edge lighting", "A glow and a preview bubble you can tap, swipe or reply from", P.lightingOn) { nav.go(Screen.Lighting) }
                 Module(Icons.Rounded.Lens, "Camera ring", "A battery ring around the selfie camera", P.ringOn) { nav.go(Screen.Ring) }
                 Module(Icons.Rounded.Wallpaper, "Living sky wallpaper", "A live wallpaper that follows the time of day and the weather", null) { nav.go(Screen.Wallpaper) }
-                Module(Icons.Rounded.Palette, "Look and feel", "Lock screen clock, network speed, status bar icons", null) { nav.go(Screen.Look) }
+                Module(Icons.Rounded.Palette, "Look and feel", "Camera island, volume panel, extra dim, lock screen clock and more", null) { nav.go(Screen.Look) }
             }
         }
         item {
@@ -116,13 +122,15 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
         item {
             Section("Apps and battery") {
                 Module(Icons.Rounded.Apps, "App profiles", "Per-app volume, fingerprint lock, time limits, keyboard and more", P.profilesOn) { nav.go(Screen.Profiles) }
-                Module(Icons.Rounded.BatteryChargingFull, "Charge guard", "Unplug nudge, bedtime reminder, time to full", P.chargeAlertOn) { nav.go(Screen.Battery) }
+                Module(Icons.Rounded.BatteryChargingFull, "Battery", "Health, unplug nudge, bedtime reminder, time to full", null) { nav.go(Screen.Battery) }
+                Module(Icons.Rounded.BarChart, "Screen time", "Time in each app, today and this week", null) { nav.go(Screen.ScreenTime) }
             }
         }
         item {
             Section("Pimp my Phone") {
                 Module(Icons.Rounded.SystemUpdate, "Updates", "Install new versions from GitHub automatically", null) { nav.go(Screen.Updates) }
                 Module(Icons.Rounded.Terminal, "ADB extras", "A one-off step that unlocks a few more features", null) { nav.go(Screen.Adb) }
+                Module(Icons.Rounded.SettingsBackupRestore, "Back up and restore", "Save all your settings to a file", null) { nav.go(Screen.Backup) }
             }
         }
     }

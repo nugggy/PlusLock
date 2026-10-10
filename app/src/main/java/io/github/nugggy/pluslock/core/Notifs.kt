@@ -12,10 +12,12 @@ import io.github.nugggy.pluslock.ui.MainActivity
 object Notifs {
     const val CH_UPDATES = "updates"
     const val CH_ALERTS = "alerts"
+    const val CH_DIGEST = "digest"
 
     const val ID_UPDATE = 100
     const val ID_CHARGE = 200
     const val ID_BEDTIME = 201
+    const val ID_DIGEST = 300
     const val ID_UNSENT_BASE = 1000
 
     fun createChannels(ctx: Context) {
@@ -23,6 +25,11 @@ object Notifs {
         nm.createNotificationChannel(
             NotificationChannel(CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "New Pimp my Phone versions and install results"
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CH_DIGEST, "Morning digest", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "A quiet summary of what came in overnight"
             }
         )
         nm.createNotificationChannel(

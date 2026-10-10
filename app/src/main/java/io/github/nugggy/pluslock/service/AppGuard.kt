@@ -15,13 +15,9 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.nugggy.pluslock.core.Apps
-import io.github.nugggy.pluslock.core.StringPref
 import io.github.nugggy.pluslock.data.AppProfile
+import io.github.nugggy.pluslock.data.UsageStore
 import io.github.nugggy.pluslock.ui.LockActivity
-import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Fingerprint lock and daily time limits for apps.
@@ -31,8 +27,6 @@ class AppGuard(private val svc: PlusAccessibilityService) {
     companion object {
         @Volatile var instance: AppGuard? = null
             private set
-        private val usageDay = StringPref("usage_day", "")
-        private val usageJson = StringPref("usage_json", "{}")
         private const val RELOCK_AFTER = 3 * 60_000L
     }
 
@@ -124,29 +118,15 @@ class AppGuard(private val svc: PlusAccessibilityService) {
         val now = SystemClock.elapsedRealtime()
         val add = now - since
         since = now
-        if (add <= 0) return
-        val o = today()
-        o.put(pkg, o.optLong(pkg) + add)
-        usageJson.value = o.toString()
+        if (add > 0) UsageStore.addSpan(pkg, System.currentTimeMillis() - add, add)
     }
 
-    private fun today(): JSONObject {
-        val day = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
-        if (usageDay.value != day) {
-            usageDay.value = day
-            usageJson.value = "{}"
-        }
-        return runCatching { JSONObject(usageJson.value) }.getOrDefault(JSONObject())
-    }
+    /** Brings today's numbers up to date, for the screen time dashboard. */
+    fun flushNow() = flush()
 
-    fun usedMs(p: String): Long = today().optLong(p)
-    private fun extraMs(p: String): Long = today().optLong("+$p")
-
-    private fun grantExtra(p: String, minutes: Int) {
-        val o = today()
-        o.put("+$p", o.optLong("+$p") + minutes * 60_000L)
-        usageJson.value = o.toString()
-    }
+    fun usedMs(p: String): Long = UsageStore.used(p)
+    private fun extraMs(p: String): Long = UsageStore.extra(p)
+    private fun grantExtra(p: String, minutes: Int) = UsageStore.grantExtra(p, minutes)
 
     private fun showLimit(limit: Int) {
         if (overlay != null) return

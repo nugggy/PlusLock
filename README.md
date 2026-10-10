@@ -14,7 +14,9 @@ Samsung's Good Lock gets deep access to One UI that no third-party app can have,
 | App profiles | Sound Assistant, Display Assistant | Per-app media volume with volume memory, keep the screen on, rotation lock, text size, keyboard and Do Not Disturb. Fingerprint lock and daily time limits. You can also switch edge gestures or lighting off per app. |
 | Control deck and tiles | QuickStar, Sound Assistant | A floating mixer with separate volume sliders, sound mode, torch brightness and caffeine. Six Quick Settings tiles. |
 | Living sky wallpaper | Wonderland | A live wallpaper that changes with the time of day (or your real sunrise and sunset), shows rain, snow and cloud, and tilts with the phone. |
-| Look and feel | LockStar, QuickStar | A custom lock screen clock, network speed beside the camera, and status bar icon hiding. |
+| Look and feel | LockStar, QuickStar, Sound Assistant | A camera island for music, calls, timers and charging. A custom volume panel. Extra dim and a warm filter. A custom lock screen clock, network speed beside the camera, and status bar icon hiding. |
+| Routines | Routines+ | When a Bluetooth device, Wi-Fi, headphones, the charger, a time or an app does something, run actions such as opening an app, volume, sound mode, Do Not Disturb, brightness or any gesture action. |
+| Side panel | Edge panels | Favourite apps, people and quick toggles from an edge gesture. |
 
 Extras Good Lock doesn't have:
 
@@ -24,6 +26,12 @@ Extras Good Lock doesn't have:
 - **Read-aloud.** Speaks new messages from the apps you choose, through headphones only if you prefer.
 - **Doomscroll breaker.** After a time limit you set in an app, the screen dims for a short breathing pause. Then you choose to leave or have 5 more minutes.
 - **Charge guard.** A nudge to unplug at 80% (or any level you set), a bedtime reminder to plug in, time to full beside the camera, and a green glow when you plug in.
+- **Screen time.** Time in each app today and over the week, counted on the phone.
+- **Morning digest.** One quiet summary of what came in overnight.
+- **Battery health.** Temperature, condition, charge cycles, estimated capacity and a two-day chart.
+- **VIP people.** Chosen people get through Do Not Disturb, pauses and quiet hours with their own glow and vibration.
+- **Flip to silence.** Put the phone face down to switch to vibrate, silent or Do Not Disturb.
+- **Back up and restore.** All settings in one file.
 - **Keyword alerts.** An SOS buzz when a message contains a word you choose, even in Do Not Disturb.
 - **Work-hours hold.** Chosen apps stay quiet during set hours, then their notifications come back.
 

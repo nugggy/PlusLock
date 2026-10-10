@@ -35,6 +35,8 @@ enum class GestureAction(val label: String) {
     VAULT("Notification vault"),
     ONE_HANDED("One-handed mode"),
     PAUSE_LIGHTING("Pause edge lighting"),
+    SIDE_PANEL("Side panel"),
+    EXTRA_DIM("Extra dim on or off"),
     LAUNCH_APP("Open an app"),
 }
 
@@ -95,6 +97,11 @@ object Actions {
             GestureAction.ONE_HANDED -> if (!SystemSettings.oneHanded(ctx)) {
                 toast(ctx, if (SystemSettings.hasSecure(ctx)) "One-handed mode isn't available on this phone"
                 else "One-handed mode needs the one-off ADB step in Pimp my Phone")
+            }
+            GestureAction.SIDE_PANEL -> if (svc == null) toast(ctx, "Turn on the Pimp my Phone accessibility service first") else svc.panel.toggle()
+            GestureAction.EXTRA_DIM -> {
+                P.dimOn.value = !P.dimOn.value
+                toast(ctx, if (P.dimOn.value) "Extra dim on" else "Extra dim off")
             }
             GestureAction.PAUSE_LIGHTING -> toast(ctx, "Edge lighting: " + Silence.cycle())
             GestureAction.VAULT -> ctx.startActivity(

@@ -5,6 +5,11 @@ import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.provider.Settings
 import android.app.Person
+import android.content.ComponentName
+import android.media.MediaMetadata
+import android.media.session.MediaController
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.graphics.Color
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -53,6 +58,7 @@ class PlusNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {
         if (sbn.packageName == packageName) return
+        IslandState.onPosted(this, sbn)
         val n = sbn.notification
         val summary = n.flags and Notification.FLAG_GROUP_SUMMARY != 0
         if (sbn.isOngoing || summary) return
@@ -103,8 +109,13 @@ class PlusNotificationListener : NotificationListenerService() {
         if (newIds.isEmpty()) return
         if (!firstPost && alertOnce) return
 
+        val latest = entries.maxByOrNull { it.time } ?: entries.last()
+        // People you've marked as VIP get through holds, pauses, quiet hours and Do Not Disturb.
+        val rule = LightingRules.find(latest.title, latest.body)
+        val vip = rule?.vip == true
+
         // Held apps go quiet until the end of the hold window, then come back on their own.
-        if (isHeld(pkg)) {
+        if (isHeld(pkg) && !vip) {
             runCatching { snoozeNotification(sbn.key, Hours.millisUntilHour(P.holdEnd.value)) }
             return
         }
@@ -114,10 +125,9 @@ class PlusNotificationListener : NotificationListenerService() {
         val dnd = currentInterruptionFilter > NotificationManager.INTERRUPTION_FILTER_ALL
 
         val profile = Profiles.get(pkg)
-        val latest = entries.maxByOrNull { it.time } ?: entries.last()
         val title = latest.title.ifBlank { app }
         val urgent = P.keywordsOn.value && matchesKeyword("${latest.title} ${latest.body}")
-        val breakThrough = urgent && P.keywordsBreakDnd.value
+        val breakThrough = urgent && P.keywordsBreakDnd.value || vip
         unseen[sbn.key] = (unseen[sbn.key] ?: 0) + newIds.size
 
         val svc = PlusAccessibilityService.instance
@@ -131,7 +141,6 @@ class PlusNotificationListener : NotificationListenerService() {
         val paused = Silence.isActive(svc?.foregroundPkg.orEmpty()) || (P.lightingLandscapeOff.value && svc?.isLandscape == true)
         val lightingAllowed = !(dnd && P.lightingRespectDnd.value) && !quiet && !paused
         if (svc != null && P.lightingOn.value && profile?.noLighting != true && (lightingAllowed || breakThrough)) {
-            val rule = LightingRules.find(latest.title, latest.body)
             val colour = rule?.colour?.takeIf { it != 0 } ?: colourFor(pkg, n, profile?.edgeColour ?: 0)
             svc.lighting.show(
                 LightAlert(
@@ -150,7 +159,9 @@ class PlusNotificationListener : NotificationListenerService() {
             lit[sbn.key] = colour
             scheduleReminder()
         }
-        if (urgent && (!dnd || breakThrough)) {
+        if (vip && rule?.haptic.orEmpty().let { it.isNotEmpty() && it != "NONE" }) {
+            Haptics.play(this, rule!!.haptic, app, urgent = dnd)
+        } else if (urgent && (!dnd || breakThrough)) {
             Haptics.play(this, "SOS", app, urgent = breakThrough)
         } else if (!dnd && P.hapticsOn.value && profile != null && profile.haptic != "NONE") {
             Haptics.play(this, profile.haptic, app)
@@ -168,6 +179,62 @@ class PlusNotificationListener : NotificationListenerService() {
         unseen.remove(sbn.key)
         lit.remove(sbn.key)
         ReplyTargets.remove(sbn.key)
+        IslandState.onRemoved(sbn.key)
+    }
+
+    // ---- music for the camera island ----
+
+    private var controller: MediaController? = null
+    private val mediaCallback = object : MediaController.Callback() {
+        override fun onPlaybackStateChanged(state: PlaybackState?) = pickMedia()
+        override fun onMetadataChanged(metadata: MediaMetadata?) = pickMedia()
+        override fun onSessionDestroyed() = pickMedia()
+    }
+    private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { pickMedia() }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        IslandState.requestMedia = { pickMedia() }
+        IslandState.reset(this, runCatching { activeNotifications.toList() }.getOrDefault(emptyList()))
+        runCatching {
+            getSystemService(MediaSessionManager::class.java)
+                .addOnActiveSessionsChangedListener(sessionsChanged, ComponentName(this, PlusNotificationListener::class.java), handler)
+        }
+        pickMedia()
+    }
+
+    override fun onListenerDisconnected() {
+        runCatching { getSystemService(MediaSessionManager::class.java).removeOnActiveSessionsChangedListener(sessionsChanged) }
+        controller?.unregisterCallback(mediaCallback)
+        controller = null
+        IslandState.setMedia(this, null)
+        IslandState.reset(this, emptyList())
+        IslandState.requestMedia = null
+        super.onListenerDisconnected()
+    }
+
+    /** Follows whichever app is playing, or the most recent session if none is. */
+    private fun pickMedia() {
+        handler.post {
+            // Nothing to do while the island is off; switching it on asks again.
+            if (!P.islandOn.value) {
+                controller?.unregisterCallback(mediaCallback)
+                controller = null
+                if (IslandState.media != null) IslandState.setMedia(this, null)
+                return@post
+            }
+            val sessions = runCatching {
+                getSystemService(MediaSessionManager::class.java)
+                    .getActiveSessions(ComponentName(this, PlusNotificationListener::class.java))
+            }.getOrDefault(emptyList())
+            val next = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: sessions.firstOrNull()
+            if (next?.sessionToken != controller?.sessionToken) {
+                controller?.unregisterCallback(mediaCallback)
+                controller = next
+                next?.registerCallback(mediaCallback, handler)
+            }
+            IslandState.setMedia(this, next)
+        }
     }
 
     private fun lockScreenShowsContent(): Boolean =

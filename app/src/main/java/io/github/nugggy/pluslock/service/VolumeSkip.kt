@@ -7,49 +7,75 @@ import io.github.nugggy.pluslock.core.Haptics
 import io.github.nugggy.pluslock.core.P
 
 /**
- * Hold volume up for the next track and volume down for the previous one, while music plays.
- * A short press still changes the volume. Android stops sending keys to accessibility
- * services when the screen is off, so this works with the screen on only.
+ * Handles the volume buttons for two features:
+ * hold to skip tracks while music plays, and Pimp my Phone's own volume panel.
+ * Android stops sending keys to accessibility services when the screen is off,
+ * so both work with the screen on only. Calls are always left to the system.
  */
-class VolumeSkip(private val svc: PlusAccessibilityService) {
+class VolumeSkip(private val svc: PlusAccessibilityService, private val panel: VolumePanel) {
     private val am = svc.getSystemService(AudioManager::class.java)
     private var held = 0
     private var fired = false
+    private var waitingForLong = false
     private val longPress = Runnable {
         fired = true
         Haptics.tick(svc)
         media(if (held == KeyEvent.KEYCODE_VOLUME_UP) KeyEvent.KEYCODE_MEDIA_NEXT else KeyEvent.KEYCODE_MEDIA_PREVIOUS)
     }
 
+    val wanted get() = P.volumeSkip.value || P.volPanelOn.value
+
     fun onKey(e: KeyEvent): Boolean {
-        if (!P.volumeSkip.value) return false
+        if (!wanted) return false
         val code = e.keyCode
         if (code != KeyEvent.KEYCODE_VOLUME_UP && code != KeyEvent.KEYCODE_VOLUME_DOWN) return false
         // Only ever handle a press from its own DOWN, so the system keeps everything else.
         if (held != 0 && code != held) return false
+        val inCall = am.mode != AudioManager.MODE_NORMAL
         when (e.action) {
             KeyEvent.ACTION_DOWN -> {
                 if (held == 0) {
-                    if (e.repeatCount != 0 || !am.isMusicActive) return false
+                    if (e.repeatCount != 0 || inCall || systemShouldHandle()) return false
+                    val skip = P.volumeSkip.value && am.isMusicActive
+                    if (!skip && !P.volPanelOn.value) return false
                     held = code
                     fired = false
-                    svc.handler.postDelayed(longPress, 550)
+                    waitingForLong = skip
+                    if (skip) svc.handler.postDelayed(longPress, 550) else step(code)
+                } else if (!waitingForLong) {
+                    step(code) // holding the key keeps changing the volume
                 }
             }
             KeyEvent.ACTION_UP -> {
                 if (held == 0) return false
                 svc.handler.removeCallbacks(longPress)
-                if (!fired) {
-                    am.adjustStreamVolume(
-                        AudioManager.STREAM_MUSIC,
-                        if (code == KeyEvent.KEYCODE_VOLUME_UP) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
-                        AudioManager.FLAG_SHOW_UI,
-                    )
-                }
+                if (waitingForLong && !fired) step(code)
                 held = 0
+                waitingForLong = false
             }
         }
         return true
+    }
+
+    /**
+     * Times the buttons mean something else: the camera shutter, snoozing an alarm (shown over
+     * the lock screen), or casting, where the buttons control the TV or speaker.
+     */
+    private fun systemShouldHandle(): Boolean {
+        val fg = svc.foregroundPkg.lowercase()
+        if ("camera" in fg || "clock" in fg || "alarm" in fg) return true
+        if (svc.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return true
+        val remote = IslandState.media?.controller?.playbackInfo?.playbackType == android.media.session.MediaController.PlaybackInfo.PLAYBACK_TYPE_REMOTE
+        return remote
+    }
+
+    private fun step(code: Int) {
+        val dir = if (code == KeyEvent.KEYCODE_VOLUME_UP) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
+        if (P.volPanelOn.value) {
+            panel.adjust(dir)
+        } else {
+            runCatching { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, dir, AudioManager.FLAG_SHOW_UI) }
+        }
     }
 
     private fun media(code: Int) {

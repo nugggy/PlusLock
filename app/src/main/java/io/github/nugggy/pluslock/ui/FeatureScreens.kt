@@ -49,6 +49,7 @@ import io.github.nugggy.pluslock.core.Swipe
 import io.github.nugggy.pluslock.core.Silence
 import io.github.nugggy.pluslock.core.Torch
 import androidx.compose.runtime.produceState
+import io.github.nugggy.pluslock.data.BatteryLog
 import io.github.nugggy.pluslock.data.LightingRule
 import io.github.nugggy.pluslock.data.LightingRules
 import io.github.nugggy.pluslock.service.LightAlert
@@ -118,8 +119,11 @@ private fun MotionSection(ctx: Context) {
         }
         PrefSwitch(P.statusTapLock, "Double-tap the status bar to lock", "Swiping down on the status bar still opens the shade")
         PrefSwitch(P.volumeSkip, "Hold volume to skip tracks", "While music plays: hold up for next, down for previous")
+        PrefChoice(P.flipAction, "Flip face down to", linkedMapOf(
+            "OFF" to "Do nothing", "VIBRATE" to "Switch to vibrate", "SILENT" to "Switch to silent", "DND" to "Turn on Do Not Disturb",
+        ))
     }
-    Note("Motion gestures only listen while the screen is on. Back tap uses the motion sensor, so it can miss a gentle tap or catch a bump. Adjust the sensitivity to suit. Track skipping only works with the screen on, because Android stops sending button presses to apps when it's off.")
+    Note("Motion gestures only listen while the screen is on. Back tap uses the motion sensor, so it can miss a gentle tap or catch a bump. Adjust the sensitivity to suit. Track skipping only works with the screen on, because Android stops sending button presses to apps when it's off. Flip watches for two minutes after the screen goes off, then stops to save battery, and puts things back when you pick the phone up.")
 }
 
 /** Choose any gesture action, or an app to open, for a single setting. */
@@ -289,7 +293,7 @@ private fun LightingRulesSection() {
     val rules = remember(json) { LightingRules.all() }
     var editing by remember { mutableStateOf<Int?>(null) }
     Section("People") {
-        Note("Give someone their own glow. Pimp my Phone matches the name in the notification, for example Mum.")
+        Note("Give someone their own glow and vibration, or make them a VIP. The name is matched against who the notification is from, for example Mum.")
         rules.forEachIndexed { i, r ->
             Row2(r.match, ruleSummary(r), onClick = { editing = i })
         }
@@ -313,14 +317,18 @@ private val ruleEffects = linkedMapOf(
 )
 
 private fun ruleSummary(r: LightingRule) =
-    listOfNotNull(ruleEffects[r.effect]?.takeIf { r.effect.isNotEmpty() }, if (r.colour != 0) "own colour" else null)
+    listOfNotNull(if (r.vip) "VIP" else null, ruleEffects[r.effect]?.takeIf { r.effect.isNotEmpty() }, if (r.colour != 0) "own colour" else null,
+        Haptics.presets[r.haptic]?.takeIf { r.haptic.isNotEmpty() }?.let { "$it vibration" })
         .joinToString(", ").ifEmpty { "No changes yet" }
 
 @Composable
 private fun RuleDialog(initial: LightingRule, canDelete: Boolean, onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (LightingRule) -> Unit) {
+    val ctx = LocalContext.current
     var name by remember { mutableStateOf(initial.match) }
     var effect by remember { mutableStateOf(initial.effect) }
     var colour by remember { mutableIntStateOf(initial.colour) }
+    var vip by remember { mutableStateOf(initial.vip) }
+    var haptic by remember { mutableStateOf(initial.haptic) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (canDelete) "Edit person" else "Add a person") },
@@ -329,9 +337,14 @@ private fun RuleDialog(initial: LightingRule, canDelete: Boolean, onDismiss: () 
                 OutlinedTextField(name, { name = it }, label = { Text("Name as it appears") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 ChoiceRow("Effect", ruleEffects, effect) { effect = it }
                 ColourRow("Colour", colour, allowAuto = true) { colour = it }
+                SwitchRow("VIP", "Gets through Do Not Disturb, pauses, quiet hours and work-hours holds", vip) { vip = it }
+                ChoiceRow("Their vibration", linkedMapOf("" to "Same as the app") + Haptics.presets.filterKeys { it != "NONE" }, haptic) {
+                    haptic = it
+                    if (it.isNotEmpty()) Haptics.play(ctx, it, name)
+                }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(LightingRule(name.trim(), effect, colour)) }, enabled = name.isNotBlank()) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { onSave(LightingRule(name.trim(), effect, colour, vip, haptic)) }, enabled = name.isNotBlank()) { Text("Save") } },
         dismissButton = {
             Row {
                 if (canDelete) TextButton(onClick = onDelete) { Text("Delete") }
@@ -379,7 +392,8 @@ fun RingScreen(nav: Nav) {
 
 @Composable
 fun BatteryScreen(nav: Nav) {
-    ScreenScaffold("Charge guard", nav.back) {
+    ScreenScaffold("Battery", nav.back) {
+        item { BatteryHealthCard() }
         item {
             Section("Charge guard") {
                 PrefSwitch(P.chargeAlertOn, "Tell me when to unplug", "A knock vibration and a notification")
@@ -406,6 +420,44 @@ fun BatteryScreen(nav: Nav) {
         }
         item { Note("Keeping a battery between 20% and 80% most of the time slows its wear. OxygenOS also has its own charging protection under Settings > Battery.") }
     }
+}
+
+@Composable
+private fun BatteryHealthCard() {
+    val ctx = LocalContext.current
+    val tick by produceState(0) { while (true) { kotlinx.coroutines.delay(5_000); value++ } }
+    val h = remember(tick) { BatteryLog.health(ctx) } ?: return
+    val samples = remember(tick / 12) { BatteryLog.samples() }
+    val primary = androidx.compose.material3.MaterialTheme.colorScheme.primary
+    val warm = androidx.compose.ui.graphics.Color(0xFFFFA94D)
+    Section("Battery health") {
+        Row2("Level", "${h.pct}%" + if (h.charging) ", charging" else "")
+        Row2("Temperature", "%.1f °C".format(h.tempC) + if (h.tempC >= 40f) ". That's warm, so take it off the charger or out of the sun." else "")
+        Row2("Condition", h.health)
+        h.cycles?.let { Row2("Charge cycles", it.toString()) }
+        h.fullMah?.let { full ->
+            val design = h.designMah
+            Row2("Capacity today", if (design != null) "About $full mAh of $design mAh (${full * 100 / design}%)" else "About $full mAh")
+        }
+        h.currentMa?.let { Row2(if (h.charging) "Charging at" else "Using", "${kotlin.math.abs(it)} mA" + if (h.volts > 0) " · %.1f W".format(kotlin.math.abs(it) / 1000f * h.volts) else "") }
+        if (samples.size >= 2) {
+            Note("Last two days: level in blue, temperature in orange.")
+            androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(120.dp).padding(horizontal = 18.dp, vertical = 8.dp)) {
+                val t0 = samples.first().time; val t1 = samples.last().time.coerceAtLeast(t0 + 1)
+                fun x(t: Long) = size.width * (t - t0) / (t1 - t0).toFloat()
+                val lv = androidx.compose.ui.graphics.Path(); val tp = androidx.compose.ui.graphics.Path()
+                samples.forEachIndexed { i, s ->
+                    val px = x(s.time)
+                    val ly = size.height * (1 - s.pct / 100f)
+                    val ty = size.height * (1 - ((s.tempC - 15f) / 35f).coerceIn(0f, 1f))
+                    if (i == 0) { lv.moveTo(px, ly); tp.moveTo(px, ty) } else { lv.lineTo(px, ly); tp.lineTo(px, ty) }
+                }
+                drawPath(lv, primary, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
+                drawPath(tp, warm, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+            }
+        }
+    }
+    Note("Capacity is an estimate from Android's charge counter, and some phones don't report cycles or design capacity at all.")
 }
 
 // ---------------------------------------------------------------- Wallpaper
@@ -535,6 +587,26 @@ fun DeckScreen(nav: Nav) {
 // ---------------------------------------------------------------- Keyword alerts and hold
 
 @Composable
+private fun DigestSection() {
+    val ctx = LocalContext.current
+    val on by P.digestOn.observe()
+    Section("Morning digest") {
+        PrefSwitch(P.digestOn, "Morning digest", "One quiet summary of what came in overnight")
+        if (on) {
+            HourRow("At", P.digestHour)
+            PrefIntChoice(P.digestMinute, "Minutes past", linkedMapOf(0 to ":00", 15 to ":15", 30 to ":30", 45 to ":45"))
+            Row2("Send one now", "Covers the last day, or since the last digest", onClick = {
+                Thread {
+                    val sent = io.github.nugggy.pluslock.service.Digest.post(ctx)
+                    if (!sent) Actions.toast(ctx, "Nothing new to sum up")
+                }.start()
+            })
+        }
+    }
+    if (on && !P.vaultOn.value) Note("The digest is built from the notification vault, so switch the vault on too.")
+}
+
+@Composable
 private fun KeywordSection() {
     val on by P.keywordsOn.observe()
     val words by P.keywords.observe()
@@ -611,6 +683,7 @@ fun TricksScreen(nav: Nav) {
                 }
             }
         }
+        item { DigestSection() }
         item { KeywordSection() }
         item { HoldSection() }
         item {

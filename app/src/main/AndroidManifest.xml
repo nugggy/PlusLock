@@ -15,6 +15,10 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- On-time routines, digest and bedtime reminder (auto-granted on Android 13+) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- Routines: tell which Bluetooth device connected -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
@@ -114,6 +118,10 @@
 
         <receiver
             android:name=".update.InstallResultReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".core.AlarmReceiver"
             android:exported="false" />
 
         <receiver

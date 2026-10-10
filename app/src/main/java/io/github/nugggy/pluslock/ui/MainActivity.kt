@@ -33,12 +33,18 @@ sealed class Screen {
     data object Updates : Screen()
     data object Look : Screen()
     data object Adb : Screen()
+    data object Routines : Screen()
+    data class RoutineEdit(val id: String) : Screen()
+    data object Panel : Screen()
+    data object ScreenTime : Screen()
+    data object Backup : Screen()
 
     companion object {
         fun fromExtra(s: String?): Screen? = when (s) {
             "vault" -> Vault
             "updates" -> Updates
             "battery" -> Battery
+            "panel" -> Panel
             else -> null
         }
     }
@@ -88,6 +94,11 @@ class MainActivity : ComponentActivity() {
                             Screen.Updates -> UpdatesScreen(nav, resumeTick)
                             Screen.Look -> LookScreen(nav, resumeTick)
                             Screen.Adb -> AdbScreen(nav, resumeTick)
+                            Screen.Routines -> RoutinesScreen(nav)
+                            is Screen.RoutineEdit -> RoutineEditScreen(nav, screen.id)
+                            Screen.Panel -> PanelScreen(nav)
+                            Screen.ScreenTime -> ScreenTimeScreen(nav, resumeTick)
+                            Screen.Backup -> BackupScreen(nav)
                         }
                     }
                 }

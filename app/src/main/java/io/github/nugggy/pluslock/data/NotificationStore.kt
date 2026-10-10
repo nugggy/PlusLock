@@ -96,6 +96,10 @@ class NotificationStore private constructor(ctx: Context) :
         return out
     }
 
+    /** Everything saved since a moment in time, oldest first, for the morning digest. */
+    fun since(time: Long, limit: Int = 2000): List<SavedNotification> =
+        rows("time >= ?", arrayOf(time.toString()), limit).reversed()
+
     fun count(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM n", null).use { c ->
         if (c.moveToFirst()) c.getInt(0) else 0
     }

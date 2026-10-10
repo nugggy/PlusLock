@@ -51,7 +51,45 @@ fun LookScreen(nav: Nav, resumeTick: Int) {
     val hidden = remember(resumeTick, bump) { SystemSettings.hiddenIcons(ctx) }
     val seconds = remember(resumeTick, bump) { SystemSettings.clockSeconds(ctx) }
 
+    val island by P.islandOn.observe()
+    val dim by P.dimOn.observe()
+    val dimSched by P.dimScheduled.observe()
+    val volPanel by P.volPanelOn.observe()
     ScreenScaffold("Look and feel", nav.back) {
+        item {
+            Section("Camera island") {
+                PrefSwitch(P.islandOn, "Camera island", "A pill around the selfie camera for music, calls, timers and charging. Tap it to expand.")
+                if (island) {
+                    PrefSwitch(P.islandMedia, "Music and videos", "With play, pause and skip when expanded")
+                    PrefSwitch(P.islandCalls, "Calls")
+                    PrefSwitch(P.islandTimers, "Timers and stopwatches")
+                    PrefSwitch(P.islandCharging, "Charging", "Shows the level and charging speed for a few seconds when you plug in")
+                }
+            }
+        }
+        if (island) item { Note("Music needs notification access. The island hides in landscape, and covers the camera ring while it's showing.") }
+        item {
+            Section("Volume panel") {
+                PrefSwitch(P.volPanelOn, "Pimp my Phone volume panel", "Replaces the system volume slider. Tap the dots for media, ring, alerts and alarm.")
+                if (volPanel) PrefChoice(P.volPanelSide, "Side", mapOf("RIGHT" to "Right", "LEFT" to "Left"))
+            }
+        }
+        if (volPanel) item { Note("Works with the screen on. During calls the system panel is used, so call volume always behaves as normal.") }
+        item {
+            Section("Extra dim and colour") {
+                PrefSwitch(P.dimOn, "Extra dim", "Darker than the lowest brightness, and an optional warm tint")
+                if (dim) {
+                    PrefSlider(P.dimLevel, "Dim", 0..90) { "$it%" }
+                    PrefSlider(P.dimWarmth, "Warmth", 0..100) { "$it%" }
+                    PrefSwitch(P.dimScheduled, "Only at set times")
+                    if (dimSched) {
+                        HourRow("From", P.dimStart)
+                        HourRow("Until", P.dimEnd)
+                    }
+                }
+            }
+        }
+        if (dim) item { Note("This lays a see-through filter over the screen, so it also shows in screenshots. There's also an Extra dim gesture action.") }
         item {
             Section("Network speed") {
                 PrefSwitch(P.netSpeedOn, "Network speed", "Live download and upload speed beside the camera")

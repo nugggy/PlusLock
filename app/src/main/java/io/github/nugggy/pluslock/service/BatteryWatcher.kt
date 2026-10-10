@@ -1,15 +1,16 @@
 package io.github.nugggy.pluslock.service
 
-import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import io.github.nugggy.pluslock.core.Alarms
 import io.github.nugggy.pluslock.core.Haptics
 import io.github.nugggy.pluslock.core.Hours
 import io.github.nugggy.pluslock.core.Notifs
 import io.github.nugggy.pluslock.core.P
+import io.github.nugggy.pluslock.data.BatteryLog
 
 /** Feeds the camera ring, plays the charging glow, and runs the charge guard and bedtime reminder. */
 class BatteryWatcher(private val svc: PlusAccessibilityService) {
@@ -17,8 +18,6 @@ class BatteryWatcher(private val svc: PlusAccessibilityService) {
     private var wasCharging: Boolean? = null
     private var lastPct = 100
     private val bm = svc.getSystemService(BatteryManager::class.java)
-    private val alarms = svc.getSystemService(AlarmManager::class.java)
-    private val bedtime = AlarmManager.OnAlarmListener { checkBedtime() }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) = handle(i)
@@ -32,18 +31,18 @@ class BatteryWatcher(private val svc: PlusAccessibilityService) {
 
     fun stop() {
         runCatching { svc.unregisterReceiver(receiver) }
-        alarms.cancel(bedtime)
+        Alarms.cancel(svc, ALARM)
     }
 
     fun scheduleBedtime() {
-        alarms.cancel(bedtime)
+        Alarms.cancel(svc, ALARM)
         if (!P.bedtimeOn.value) return
-        val at = System.currentTimeMillis() + Hours.millisUntilHour(P.bedtimeHour.value, P.bedtimeMinute.value)
-        // An inexact alarm needs no special permission and still wakes the phone, within five minutes.
-        alarms.setWindow(AlarmManager.RTC_WAKEUP, at, 5 * 60_000L, "pluslock:bedtime", bedtime, svc.handler)
+        Alarms.set(svc, ALARM, System.currentTimeMillis() + Hours.millisUntilHour(P.bedtimeHour.value, P.bedtimeMinute.value))
     }
 
-    private fun checkBedtime() {
+    companion object { const val ALARM = "bedtime" }
+
+    fun checkBedtime() {
         if (P.bedtimeOn.value && wasCharging == false && lastPct < P.bedtimeBelow.value) {
             Haptics.play(svc, "KNOCK", "")
             Notifs.post(
@@ -64,11 +63,17 @@ class BatteryWatcher(private val svc: PlusAccessibilityService) {
         val status = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
         lastPct = pct
+        BatteryLog.record(pct, i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0), charging)
         val eta = if (charging) runCatching { bm.computeChargeTimeRemaining() }.getOrDefault(-1L) else -1L
         svc.ring.update(pct, charging, eta)
 
         val prev = wasCharging
         wasCharging = charging
+        if (prev == false && charging) {
+            val microAmps = runCatching { bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) }.getOrDefault(0)
+            val volts = i.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / 1000f
+            IslandState.onPlugged(pct, kotlin.math.abs(microAmps) / 1_000_000f * volts)
+        }
         if (prev == false && charging && P.chargingGlow.value) {
             svc.lighting.show(0xFF4BE38A.toInt(), null, "Charging", "$pct%", effectOverride = "PULSE")
         }

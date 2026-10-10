@@ -159,6 +159,42 @@ object P {
     val statusTapLock = BoolPref("statustap_on", false)
     val volumeSkip = BoolPref("volskip_on", false)
 
+    val flipAction = StringPref("motion_flip", "OFF") // OFF, VIBRATE, SILENT, DND
+
+    // Routines
+    val routinesOn = BoolPref("routines_on", true)
+    val routinesJson = StringPref("routines_json", "[]")
+
+    // Side panel
+    val panelApps = StringPref("panel_apps", "") // comma separated packages
+    val panelContacts = StringPref("panel_contacts", "[]")
+    val panelSide = StringPref("panel_side", "RIGHT")
+
+    // Camera island
+    val islandOn = BoolPref("island_on", false)
+    val islandMedia = BoolPref("island_media", true)
+    val islandCalls = BoolPref("island_calls", true)
+    val islandTimers = BoolPref("island_timers", true)
+    val islandCharging = BoolPref("island_charging", true)
+
+    // Volume panel
+    val volPanelOn = BoolPref("volpanel_on", false)
+    val volPanelSide = StringPref("volpanel_side", "RIGHT")
+
+    // Morning digest
+    val digestOn = BoolPref("digest_on", false)
+    val digestHour = IntPref("digest_hour", 7)
+    val digestMinute = IntPref("digest_minute", 30)
+    val digestLast = LongPref("digest_last", 0L)
+
+    // Extra dim and colour filter
+    val dimOn = BoolPref("dim_on", false)
+    val dimLevel = IntPref("dim_level", 30)
+    val dimWarmth = IntPref("dim_warmth", 0)
+    val dimScheduled = BoolPref("dim_scheduled", false)
+    val dimStart = IntPref("dim_start", 22)
+    val dimEnd = IntPref("dim_end", 6)
+
     // Look and feel
     val netSpeedOn = BoolPref("netspeed_on", false)
     val netSpeedSide = StringPref("netspeed_side", "LEFT")

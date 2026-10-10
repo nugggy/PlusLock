@@ -9,11 +9,22 @@ import org.json.JSONObject
  * [match], the glow uses [effect] and [colour] instead of the app's own.
  * colour 0 keeps the app's colour, effect "" keeps the global effect.
  */
-data class LightingRule(val match: String, val effect: String = "", val colour: Int = 0) {
+data class LightingRule(
+    val match: String,
+    val effect: String = "",
+    val colour: Int = 0,
+    /** VIPs get through work-hours holds, pauses, quiet hours and Do Not Disturb. */
+    val vip: Boolean = false,
+    /** Their own vibration pattern (a [io.github.nugggy.pluslock.core.Haptics] preset), "" for none. */
+    val haptic: String = "",
+) {
     fun toJson(): JSONObject = JSONObject().put("match", match).put("effect", effect).put("colour", colour)
+        .put("vip", vip).put("haptic", haptic)
 
     companion object {
-        fun fromJson(o: JSONObject) = LightingRule(o.optString("match"), o.optString("effect"), o.optInt("colour"))
+        fun fromJson(o: JSONObject) = LightingRule(
+            o.optString("match"), o.optString("effect"), o.optInt("colour"), o.optBoolean("vip"), o.optString("haptic"),
+        )
     }
 }
 

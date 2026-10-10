@@ -60,6 +60,14 @@ class PlusAccessibilityService : AccessibilityService() {
     private lateinit var netSpeed: NetSpeed
     private lateinit var lockClock: LockClock
     private lateinit var volumeSkip: VolumeSkip
+    private lateinit var volumePanel: VolumePanel
+    lateinit var panel: SidePanel
+        private set
+    private lateinit var island: Island
+    private lateinit var filter: ScreenFilter
+    private lateinit var digest: Digest
+    lateinit var routines: RoutineEngine
+        private set
 
     /** Set by app profiles that turn gestures off, so games keep the top of the screen. */
     var statusTapSuppressed = false
@@ -92,7 +100,13 @@ class PlusAccessibilityService : AccessibilityService() {
         statusTap = StatusBarTap(this)
         netSpeed = NetSpeed(this)
         lockClock = LockClock(this)
-        volumeSkip = VolumeSkip(this)
+        volumePanel = VolumePanel(this)
+        volumeSkip = VolumeSkip(this, volumePanel)
+        panel = SidePanel(this)
+        island = Island(this)
+        filter = ScreenFilter(this)
+        digest = Digest(this)
+        routines = RoutineEngine(this)
         imePackages = runCatching {
             getSystemService(InputMethodManager::class.java).inputMethodList.map { it.packageName }.toSet()
         }.getOrDefault(emptySet())
@@ -112,16 +126,21 @@ class PlusAccessibilityService : AccessibilityService() {
         netSpeed.refresh()
         lockClock.refresh()
         updateKeyFilter()
+        island.refresh()
+        filter.refresh()
+        digest.schedule()
+        routines.start()
     }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             when (i.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    motion.stop(); netSpeed.remove(); guard.onScreenOff(); statusTap.resume()
+                    motion.screenOff(); netSpeed.remove(); guard.onScreenOff(); statusTap.resume()
+                    panel.hide(); volumePanel.hide(); island.remove()
                     lighting.hide(immediate = true)
                 }
-                Intent.ACTION_SCREEN_ON -> { motion.refresh(); netSpeed.refresh() }
+                Intent.ACTION_SCREEN_ON -> { motion.refresh(); netSpeed.refresh(); island.refresh() }
                 Intent.ACTION_USER_PRESENT -> guard.onUnlocked()
             }
             lockClock.refresh()
@@ -132,7 +151,7 @@ class PlusAccessibilityService : AccessibilityService() {
     private fun updateKeyFilter() {
         val info = serviceInfo ?: return
         val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
-        val want = P.volumeSkip.value
+        val want = volumeSkip.wanted
         val has = info.flags and flag != 0
         if (want == has) return
         info.flags = if (want) info.flags or flag else info.flags and flag.inv()
@@ -140,6 +159,22 @@ class PlusAccessibilityService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean = volumeSkip.onKey(event)
+
+    /** An exact alarm from [io.github.nugggy.pluslock.core.Alarms] went off. */
+    fun onAlarm(key: String) {
+        when {
+            key == Digest.ALARM -> digest.onAlarm()
+            key == BatteryWatcher.ALARM -> battery.checkBedtime()
+            key.startsWith(RoutineEngine.KEY) -> routines.onAlarm(key)
+        }
+    }
+
+    /** The clock or time zone changed, so every scheduled time needs working out again. */
+    fun onClockChanged() {
+        routines.scheduleTimes()
+        digest.schedule()
+        battery.scheduleBedtime()
+    }
 
     private fun onPrefChanged(key: String) {
         when {
@@ -152,7 +187,11 @@ class PlusAccessibilityService : AccessibilityService() {
             key.startsWith("netspeed") -> netSpeed.refresh()
             key.startsWith("lockclock") -> lockClock.refresh()
             key.startsWith("bedtime") -> battery.scheduleBedtime()
-            key == "volskip_on" -> updateKeyFilter()
+            key == "volskip_on" || key == "volpanel_on" -> updateKeyFilter()
+            key.startsWith("island") -> island.refresh()
+            key.startsWith("dim") -> filter.refresh()
+            key.startsWith("digest") && key != "digest_last" -> digest.schedule()
+            key.startsWith("routines") -> routines.reload()
         }
     }
 
@@ -173,6 +212,7 @@ class PlusAccessibilityService : AccessibilityService() {
         if (pkg == foregroundPkg) return
         foregroundPkg = pkg
         Silence.onForeground(pkg)
+        routines.onAppOpened(pkg)
         profiles.onForeground(pkg)
     }
 
@@ -189,6 +229,8 @@ class PlusAccessibilityService : AccessibilityService() {
             statusTap.refresh()
             netSpeed.refresh()
             lockClock.refresh()
+            island.refresh()
+            filter.refresh()
         }, 250)
     }
 
@@ -199,11 +241,17 @@ class PlusAccessibilityService : AccessibilityService() {
         runCatching { Prefs.sp.unregisterOnSharedPreferenceChangeListener(prefListener) }
         runCatching { unregisterReceiver(screenReceiver) }
         if (::battery.isInitialized) battery.stop()
-        if (::motion.isInitialized) motion.stop()
+        if (::motion.isInitialized) { motion.restoreFlip(); motion.stop() }
         if (::statusTap.isInitialized) statusTap.remove()
         if (::netSpeed.isInitialized) netSpeed.remove()
         if (::lockClock.isInitialized) lockClock.remove()
         if (::guard.isInitialized) guard.release()
+        if (::panel.isInitialized) panel.hide()
+        if (::volumePanel.isInitialized) volumePanel.hide()
+        if (::island.isInitialized) island.release()
+        if (::filter.isInitialized) filter.remove()
+        if (::digest.isInitialized) digest.stop()
+        if (::routines.isInitialized) routines.stop()
         if (::gestures.isInitialized) gestures.remove()
         if (::lighting.isInitialized) lighting.hide(immediate = true)
         if (::ring.isInitialized) ring.remove()
