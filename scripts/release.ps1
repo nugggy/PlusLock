@@ -36,9 +36,16 @@ $apk = "$dist\PlusLock.apk"
 Copy-Item "$root\app\build\outputs\apk\release\app-release.apk" $apk -Force
 (Get-FileHash $apk -Algorithm SHA256).Hash.ToLower() | Out-File -Encoding ascii -NoNewline "$apk.sha256"
 
+# git writes progress to stderr, which Windows PowerShell treats as a failure under 'Stop',
+# so run git with 'Continue' and check its exit code instead.
+$ErrorActionPreference = 'Continue'
 git tag -a $tag -m "PlusLock $tag"
-git push origin HEAD
-git push origin $tag
+if ($LASTEXITCODE -ne 0) { throw "Couldn't create the tag $tag. Does it already exist?" }
+git push origin HEAD 2>&1 | Write-Host
+if ($LASTEXITCODE -ne 0) { throw "Pushing the branch failed." }
+git push origin $tag 2>&1 | Write-Host
+if ($LASTEXITCODE -ne 0) { throw "Pushing the tag $tag failed." }
+$ErrorActionPreference = 'Stop'
 
 $ghArgs = @("release", "create", $tag, $apk, "$apk.sha256", "--repo", $repo, "--title", "PlusLock $tag", "--generate-notes")
 if ($Version.Contains('-')) { $ghArgs += "--prerelease" }
