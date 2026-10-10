@@ -17,6 +17,21 @@ class VolumeSkip(private val svc: PlusAccessibilityService, private val panel: V
     private var held = 0
     private var fired = false
     private var waitingForLong = false
+    private var repeats = 0
+
+    /**
+     * Holding a button keeps moving the volume. Android doesn't send repeats for a key an
+     * accessibility service has taken, so this times them itself.
+     */
+    private val repeat = object : Runnable {
+        override fun run() {
+            // Stops by itself in case the button's release never arrives.
+            if (held == 0 || waitingForLong || ++repeats > 60) return
+            step(held)
+            svc.handler.postDelayed(this, 80)
+        }
+    }
+
     private val longPress = Runnable {
         fired = true
         Haptics.tick(svc)
@@ -41,14 +56,19 @@ class VolumeSkip(private val svc: PlusAccessibilityService, private val panel: V
                     held = code
                     fired = false
                     waitingForLong = skip
-                    if (skip) svc.handler.postDelayed(longPress, 550) else step(code)
-                } else if (!waitingForLong) {
-                    step(code) // holding the key keeps changing the volume
+                    if (skip) svc.handler.postDelayed(longPress, 550)
+                    else {
+                        step(code)
+                        repeats = 0
+                        svc.handler.postDelayed(repeat, 350)
+                    }
                 }
+                // Any repeats Android does send are ignored; the timer above does the holding.
             }
             KeyEvent.ACTION_UP -> {
                 if (held == 0) return false
                 svc.handler.removeCallbacks(longPress)
+                svc.handler.removeCallbacks(repeat)
                 if (waitingForLong && !fired) step(code)
                 held = 0
                 waitingForLong = false

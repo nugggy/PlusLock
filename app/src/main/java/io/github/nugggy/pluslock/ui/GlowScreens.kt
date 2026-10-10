@@ -549,14 +549,14 @@ fun VolumePanelScreen(nav: Nav) {
         }
         item {
             Section("Which volumes") {
-                Note("Pick the sliders you want. The one the buttons move always shows; the rest sit behind the dots.")
+                Note("Pick the sliders you want. The one the buttons move always shows. Tap More on the panel for the rest.")
                 io.github.nugggy.pluslock.service.volumeStreams.forEach { (key, label) ->
                     SwitchRow(label, null, key in chosen) { on ->
                         val next = io.github.nugggy.pluslock.service.volumeStreams.keys.filter { k -> if (k == key) on else k in chosen }
                         P.volPanelStreams.value = next.joinToString(",")
                     }
                 }
-                PrefSwitch(P.volPanelExpanded, "Always show them all", "No dots to tap: every slider you picked shows at once")
+                PrefSwitch(P.volPanelExpanded, "Always show them all", "No More button: every slider you picked shows at once")
                 PrefChoice(P.volPanelButtons, "The volume buttons control", linkedMapOf(
                     "AUTO" to "Media while something plays, otherwise the ringtone",
                     "MUSIC" to "Always media",

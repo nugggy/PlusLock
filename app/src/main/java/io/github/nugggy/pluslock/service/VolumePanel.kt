@@ -52,12 +52,14 @@ private val rainbow = intArrayOf(0xFF7FB2FF.toInt(), 0xFF4BE38A.toInt(), 0xFFFFC
 
 /**
  * Pimp my Phone's own volume panel, shown instead of the system one when it's switched on.
- * The buttons move one slider; the dots show the rest of the volumes you've chosen.
+ * The buttons move one slider; More shows the rest of the volumes you have chosen.
  */
 class VolumePanel(private val svc: PlusAccessibilityService) {
     private val am = svc.getSystemService(AudioManager::class.java)
     private var view: PanelRoot? = null
     private val hideRunnable = Runnable { hide() }
+    /** Showing every chosen volume, after tapping More. Resets when the panel hides. */
+    private var expanded = false
 
     /** Which volume the buttons move. */
     private fun activeStream() = when {
@@ -100,7 +102,8 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
 
     private fun create(stream: Int): PanelRoot? {
         val b = svc.screenBounds()
-        val v = PanelRoot(svc, am, stream, onTouch = { bumpHide() }, onResize = ::relayout, onOutside = { hide() })
+        val v = PanelRoot(svc, am, stream, expanded || P.volPanelExpanded.value,
+            onTouch = { bumpHide() }, onToggle = ::toggleExpanded, onOutside = { hide() })
         val lp = svc.overlayParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, touchable = true)
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         val right = P.volPanelSide.value != "LEFT"
@@ -112,9 +115,17 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
         return v
     }
 
-    private fun relayout(v: View) {
-        val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
-        runCatching { svc.wm.updateViewLayout(v, lp) }
+    /**
+     * Rebuilds the panel at its new size rather than growing it in place,
+     * because some phones don't resize an overlay window when its content grows.
+     */
+    private fun toggleExpanded() {
+        val old = view ?: return
+        expanded = !expanded
+        svc.removeOverlay(old)
+        view = null
+        create(old.main)?.refresh()
+        bumpHide()
     }
 
     /** Shows the panel from settings so changes can be seen straight away. */
@@ -125,6 +136,7 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
 
     fun hide() {
         svc.handler.removeCallbacks(hideRunnable)
+        expanded = false
         val v = view ?: return
         view = null
         v.animate().alpha(0f).setDuration(180).withEndAction { svc.removeOverlay(v) }.start()
@@ -138,8 +150,9 @@ private class PanelRoot(
     ctx: Context,
     private val am: AudioManager,
     val main: Int,
+    private val expanded: Boolean,
     private val onTouch: () -> Unit,
-    private val onResize: (View) -> Unit,
+    private val onToggle: () -> Unit,
     private val onOutside: () -> Unit,
 ) : LinearLayout(ctx) {
     private val d = resources.displayMetrics.density
@@ -147,7 +160,7 @@ private class PanelRoot(
     private val horizontal = P.volPanelLayout.value == "HORIZONTAL"
     private val extra = LinearLayout(ctx).apply {
         orientation = if (horizontal) VERTICAL else HORIZONTAL
-        visibility = if (P.volPanelExpanded.value) VISIBLE else GONE
+        visibility = if (expanded) VISIBLE else GONE
     }
     private val modeChip: TextView?
     private val light = P.volPanelStyle.value == "LIGHT"
@@ -189,14 +202,20 @@ private class PanelRoot(
         row.addView(extra)
         addView(row)
 
+        // A proper button with a big target, rather than three small dots.
         if (extra.childCount > 0 && !P.volPanelExpanded.value) addView(TextView(ctx).apply {
-            text = "• • •"; setTextColor(if (light) 0x99000000.toInt() else 0x99FFFFFF.toInt()); textSize = 12f; gravity = Gravity.CENTER
-            setPadding(0, (8 * d).toInt(), 0, 0)
+            text = if (expanded) "Less" else "More"
+            setTextColor(textColour); textSize = 12f; gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            minHeight = (40 * d).toInt()
+            setPadding((10 * d).toInt(), (8 * d).toInt(), (10 * d).toInt(), (8 * d).toInt())
+            background = GradientDrawable().apply { cornerRadius = 20 * d; setColor(if (light) 0x14000000 else 0x22FFFFFF) }
+            contentDescription = if (expanded) "Show fewer volumes" else "Show all volumes"
             setOnClickListener {
-                extra.visibility = if (extra.visibility == VISIBLE) GONE else VISIBLE
-                onTouch(); onResize(this@PanelRoot)
+                performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                onTouch(); onToggle()
             }
-        }, LayoutParams(-1, -2))
+        }, LayoutParams(-1, -2).apply { topMargin = (10 * d).toInt() })
         refresh()
     }
 
