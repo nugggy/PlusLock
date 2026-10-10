@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PlusLock</string>
+    <string name="a11y_label">PlusLock gestures and overlays</string>
+    <string name="a11y_description">Lets PlusLock draw edge handles, edge lighting and the camera ring, run gesture actions such as back, home and screenshot, and notice which app is open so per-app profiles can apply. PlusLock does not read screen content.</string>
+    <string name="listener_label">PlusLock notification vault</string>
+    <string name="wallpaper_label">PlusLock Sky</string>
+    <string name="wallpaper_desc">A living sky that follows the time of day and tilts with your phone.</string>
+    <string name="tile_caffeine">Caffeine</string>
+    <string name="tile_lock">Lock screen</string>
+    <string name="tile_screenshot">Screenshot</string>
+    <string name="tile_sound">Sound mode</string>
+    <string name="tile_deck">Control deck</string>
+    <string name="tile_gestures">Edge gestures</string>
+</resources>
