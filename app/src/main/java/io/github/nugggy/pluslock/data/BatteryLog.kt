@@ -55,7 +55,7 @@ object BatteryLog {
 
     /** The battery's rated capacity. Android only exposes it through an internal class, so read it once. */
     @SuppressLint("PrivateApi")
-    private fun designMah(ctx: Context): Int? {
+    fun designMah(ctx: Context): Int? {
         if (!designRead) {
             designRead = true
             design = runCatching {

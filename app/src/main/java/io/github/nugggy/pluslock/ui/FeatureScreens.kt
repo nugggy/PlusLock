@@ -60,7 +60,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import io.github.nugggy.pluslock.wallpaper.SkyWallpaperService
 
-private fun needsService(ctx: Context): Boolean {
+internal fun needsService(ctx: Context): Boolean {
     if (PlusAccessibilityService.instance != null) return false
     Toast.makeText(ctx, "Turn on the Pimp my Phone accessibility service first", Toast.LENGTH_SHORT).show()
     return true
@@ -178,216 +178,6 @@ private fun GestureActionRow(ctx: Context, side: Side, dir: Swipe) {
     }
 }
 
-// ---------------------------------------------------------------- Edge lighting
-
-@Composable
-fun LightingScreen(nav: Nav) {
-    val ctx = LocalContext.current
-    val colour by P.lightingColour.observe()
-    val appColour by P.lightingAppColour.observe()
-    val pill by P.lightingPill.observe()
-    val quiet by P.lightingQuietOn.observe()
-    ScreenScaffold("Edge lighting", nav.back) {
-        item {
-            Section("Edge lighting") {
-                PrefSwitch(P.lightingOn, "Edge lighting", "Glow when a notification arrives and the screen is on")
-                PrefChoice(P.lightingEffect, "Effect", mapOf(
-                    "COMET" to "Comet: two lights race round the edge",
-                    "PULSE" to "Pulse: the whole edge breathes",
-                    "NEON" to "Neon: a spinning sweep",
-                    "RAINBOW" to "Rainbow: every colour at once",
-                    "SOLID" to "Solid: a steady glow",
-                ))
-                PrefChoice(P.lightingShape, "Where it glows", mapOf(
-                    "EDGE" to "The whole screen edge",
-                    "TOP" to "Just the top edge",
-                    "CAMERA" to "Around the selfie camera",
-                ))
-                PrefSlider(P.lightingThickness, "Thickness", 2..14) { "$it dp" }
-                PrefSlider(P.lightingDuration, "How long", 2..15) { "$it s" }
-            }
-        }
-        item { PauseSection() }
-        item {
-            Section("Colour and timing") {
-                PrefSwitch(P.lightingAppColour, "Use each app's colour", "Taken from the app's brand colour or icon")
-                if (!appColour) ColourRow("Colour", colour) { P.lightingColour.value = it }
-                PrefSwitch(P.lightingRespectDnd, "Stay dark in Do Not Disturb")
-                PrefSwitch(P.lightingLandscapeOff, "Stay dark in landscape", "Keeps videos and games clear")
-                PrefSwitch(P.lightingQuietOn, "Quiet hours", "No glow during these hours, Do Not Disturb or not")
-                if (quiet) {
-                    HourRow("From", P.lightingQuietStart)
-                    HourRow("Until", P.lightingQuietEnd)
-                }
-                PrefIntChoice(P.lightingReminder, "Unread reminder", linkedMapOf(
-                    0 to "Off", 2 to "Every 2 minutes", 5 to "Every 5 minutes", 10 to "Every 10 minutes", 30 to "Every 30 minutes",
-                ))
-                PrefSwitch(P.chargingGlow, "Glow green when you plug in")
-            }
-        }
-        item {
-            Section("Preview bubble") {
-                PrefSwitch(P.lightingPill, "Show a preview bubble", "App icon, sender and the message")
-                if (pill) {
-                    PrefSlider(P.lightingPillSize, "Text size", 80..200) { "$it%" }
-                    PrefIntChoice(P.bubbleLines, "Message lines", linkedMapOf(1 to "One line", 2 to "Two lines", 3 to "Three lines"))
-                    PrefChoice(P.bubblePosition, "Position", mapOf("TOP" to "Top of the screen", "BOTTOM" to "Bottom of the screen"))
-                    PrefChoice(P.bubbleStyle, "Style", linkedMapOf(
-                        "DARK" to "Dark", "LIGHT" to "Light", "GLASS" to "Glass: see-through", "APP" to "The app's colour",
-                    ))
-                    PrefSwitch(P.bubbleTapToOpen, "Tap to open", "Opens the message. Swipe the bubble sideways to dismiss it, or long-press it to pause bubbles for a while.")
-                    PrefSwitch(P.bubbleReply, "Quick reply", "A Reply button for apps that support it, such as WhatsApp and Messages")
-                    PrefSwitch(P.bubbleGroup, "Group messages", "A burst from one chat updates one bubble with a count")
-                }
-            }
-        }
-        item {
-            Button(
-                onClick = {
-                    if (needsService(ctx)) return@Button
-                    PlusAccessibilityService.instance?.lighting?.show(
-                        LightAlert(
-                            colour = if (appColour) Apps.accentColour(ctx, ctx.packageName) else colour,
-                            icon = Apps.icon(ctx, ctx.packageName),
-                            title = "Pimp my Phone",
-                            text = "This is how your notifications will glow. Longer messages wrap onto a second line if you choose two lines.",
-                            key = "preview",
-                            count = 2,
-                        )
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Preview") }
-        }
-        item { LightingRulesSection() }
-        item { Note("Per-app colours and opt-outs live in App profiles.") }
-    }
-}
-
-@Composable
-private fun PauseSection() {
-    val ctx = LocalContext.current
-    val until by P.lightingSilenceUntil.observe()
-    val app by P.lightingSilenceApp.observe()
-    // Re-read once a minute so a timed pause ends on screen too.
-    val tick by produceState(0) { while (true) { kotlinx.coroutines.delay(30_000); value++ } }
-    val status = remember(until, app, tick) { Silence.describe(ctx) }
-    Section("Pause") {
-        if (status != null) {
-            Row2(status, null) { TextButton(onClick = { Silence.resume() }) { Text("Resume") } }
-        } else {
-            Row2("Pause bubbles and glow", "Notifications still arrive, Pimp my Phone just stays dark")
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = { Silence.forMinutes(30) }, modifier = Modifier.weight(1f)) { Text("30 min") }
-                FilledTonalButton(onClick = { Silence.forMinutes(60) }, modifier = Modifier.weight(1f)) { Text("1 hour") }
-                FilledTonalButton(onClick = { Silence.untilResumed() }, modifier = Modifier.weight(1f)) { Text("Until on") }
-            }
-        }
-    }
-    Note("You can also long-press a bubble, add the Pause lighting tile to Quick Settings, or set an edge gesture to Pause edge lighting.")
-}
-
-@Composable
-private fun LightingRulesSection() {
-    val json by P.lightingRulesJson.observe()
-    val rules = remember(json) { LightingRules.all() }
-    var editing by remember { mutableStateOf<Int?>(null) }
-    Section("People") {
-        Note("Give someone their own glow and vibration, or make them a VIP. The name is matched against who the notification is from, for example Mum.")
-        rules.forEachIndexed { i, r ->
-            Row2(r.match, ruleSummary(r), onClick = { editing = i })
-        }
-        Row2("Add a person", null, Icons.Rounded.PersonAdd, onClick = { editing = -1 })
-    }
-    val e = editing
-    if (e != null) RuleDialog(
-        initial = rules.getOrNull(e) ?: LightingRule(""),
-        canDelete = e >= 0,
-        onDismiss = { editing = null },
-        onDelete = { LightingRules.save(rules.filterIndexed { i, _ -> i != e }); editing = null },
-        onSave = { r ->
-            LightingRules.save(if (e >= 0) rules.mapIndexed { i, old -> if (i == e) r else old } else rules + r)
-            editing = null
-        },
-    )
-}
-
-private val ruleEffects = linkedMapOf(
-    "" to "Same as everyone", "COMET" to "Comet", "PULSE" to "Pulse", "NEON" to "Neon", "RAINBOW" to "Rainbow", "SOLID" to "Solid",
-)
-
-private fun ruleSummary(r: LightingRule) =
-    listOfNotNull(if (r.vip) "VIP" else null, ruleEffects[r.effect]?.takeIf { r.effect.isNotEmpty() }, if (r.colour != 0) "own colour" else null,
-        Haptics.presets[r.haptic]?.takeIf { r.haptic.isNotEmpty() }?.let { "$it vibration" })
-        .joinToString(", ").ifEmpty { "No changes yet" }
-
-@Composable
-private fun RuleDialog(initial: LightingRule, canDelete: Boolean, onDismiss: () -> Unit, onDelete: () -> Unit, onSave: (LightingRule) -> Unit) {
-    val ctx = LocalContext.current
-    var name by remember { mutableStateOf(initial.match) }
-    var effect by remember { mutableStateOf(initial.effect) }
-    var colour by remember { mutableIntStateOf(initial.colour) }
-    var vip by remember { mutableStateOf(initial.vip) }
-    var haptic by remember { mutableStateOf(initial.haptic) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (canDelete) "Edit person" else "Add a person") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name as it appears") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                ChoiceRow("Effect", ruleEffects, effect) { effect = it }
-                ColourRow("Colour", colour, allowAuto = true) { colour = it }
-                SwitchRow("VIP", "Gets through Do Not Disturb, pauses, quiet hours and work-hours holds", vip) { vip = it }
-                ChoiceRow("Their vibration", linkedMapOf("" to "Same as the app") + Haptics.presets.filterKeys { it != "NONE" }, haptic) {
-                    haptic = it
-                    if (it.isNotEmpty()) Haptics.play(ctx, it, name)
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = { onSave(LightingRule(name.trim(), effect, colour, vip, haptic)) }, enabled = name.isNotBlank()) { Text("Save") } },
-        dismissButton = {
-            Row {
-                if (canDelete) TextButton(onClick = onDelete) { Text("Delete") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
-            }
-        },
-    )
-}
-
-// ---------------------------------------------------------------- Camera ring
-
-@Composable
-fun RingScreen(nav: Nav) {
-    val mode by P.ringColourMode.observe()
-    val colour by P.ringColour.observe()
-    ScreenScaffold("Camera ring", nav.back) {
-        item {
-            Section("Ring") {
-                PrefSwitch(P.ringOn, "Camera ring", "Battery level drawn around the selfie camera")
-                PrefSwitch(P.ringShowTrack, "Show the empty part of the ring")
-                PrefSwitch(P.ringHideLandscape, "Hide in landscape")
-                PrefSwitch(P.ringShowEta, "Time to full while charging", "A small label beside the camera")
-                PrefChoice(P.ringColourMode, "Colour", mapOf(
-                    "LEVEL" to "White, turning orange then red when low",
-                    "ACCENT" to "My colour, turning orange then red when low",
-                    "CUSTOM" to "Always my colour",
-                ))
-                if (mode != "LEVEL") ColourRow("My colour", colour) { P.ringColour.value = it }
-            }
-        }
-        item {
-            Section("Fit it to your camera") {
-                PrefSlider(P.ringThickness, "Thickness", 10..80) { "%.1f dp".format(it / 10f) }
-                PrefSlider(P.ringGap, "Gap from the lens", 0..60) { "%.1f dp".format(it / 10f) }
-                PrefSlider(P.ringScale, "Size", 60..160) { "$it%" }
-                PrefSlider(P.ringOffsetX, "Nudge sideways", -40..40) { "%.1f dp".format(it / 2f) }
-                PrefSlider(P.ringOffsetY, "Nudge up or down", -40..40) { "%.1f dp".format(it / 2f) }
-            }
-        }
-        item { Note("Pimp my Phone reads the camera position from Android. If the ring sits a little off on your OnePlus 15, nudge it here. It spins while charging.") }
-    }
-}
-
 // ---------------------------------------------------------------- Battery
 
 @Composable
@@ -413,9 +203,9 @@ fun BatteryScreen(nav: Nav) {
         }
         item {
             Section("While charging") {
-                PrefSwitch(P.chargingGlow, "Green glow when you plug in")
+                Row2("Charging effects", "Charging animations, a glow that stays on, plug-in and fully charged moments", onClick = { nav.go(Screen.Charging) })
                 PrefSwitch(P.ringShowEta, "Time to full beside the camera", "Needs the camera ring switched on")
-                Row2("Camera ring", "The ring spins while charging. Set it up under Camera ring.", onClick = { nav.go(Screen.Ring) })
+                Row2("Camera ring", "The ring animates while charging. Set it up under Camera ring.", onClick = { nav.go(Screen.Ring) })
             }
         }
         item { Note("Keeping a battery between 20% and 80% most of the time slows its wear. OxygenOS also has its own charging protection under Settings > Battery.") }
@@ -608,14 +398,37 @@ private fun DigestSection() {
 
 @Composable
 private fun KeywordSection() {
+    val ctx = LocalContext.current
     val on by P.keywordsOn.observe()
     val words by P.keywords.observe()
+    val glow by P.keywordsGlow.observe()
+    val kColour by P.keywordsColour.observe()
     var editing by remember { mutableStateOf(false) }
     Section("Keyword alerts") {
-        PrefSwitch(P.keywordsOn, "Keyword alerts", "An SOS buzz and a pulsing glow when a message contains one of your words")
+        PrefSwitch(P.keywordsOn, "Keyword alerts", "A buzz and a glow when a message contains one of your words")
         if (on) {
             Row2("Words", words.ifBlank { "None yet" }, onClick = { editing = true })
+            PrefSwitch(P.keywordsPartial, "Match inside longer words", "Off: help won't match helpful. On: it will.")
             PrefSwitch(P.keywordsBreakDnd, "Even in Do Not Disturb", "Buzzes on the alarm channel, so it gets through if alarms are allowed")
+            PrefSwitch(P.keywordsGlow, "Glow", "Works even with edge lighting switched off or paused")
+            if (glow) {
+                PrefSwitch(P.keywordsWake, "Light up the lock screen", "Wakes the screen if it's off")
+                PrefChoice(P.keywordsEffect, "Effect", io.github.nugggy.pluslock.service.lightingEffects)
+                ColourRow("Colour", kColour) { P.keywordsColour.value = it }
+                PrefSlider(P.keywordsDuration, "How long", 3..60) { "$it s" }
+            }
+            PrefChoice(P.keywordsHaptic, "Vibration", Haptics.presets)
+            PrefSwitch(P.keywordsTorch, "Blink the torch")
+            PrefSwitch(P.keywordsSound, "Play a sound, even on silent")
+            Row2("Try it", "Shows the glow and plays the vibration") {
+                IconButton(onClick = {
+                    if (needsService(ctx)) return@IconButton
+                    PlusAccessibilityService.instance?.lighting?.show(LightAlert(P.keywordsColour.value, null, "Keyword alert", "Someone said: urgent",
+                        effect = P.keywordsEffect.value, durationMs = 4_000))
+                    Haptics.play(ctx, P.keywordsHaptic.value, "")
+                }) { Icon(Icons.Rounded.PlayArrow, "Try") }
+            }
+            Row2("Lost your phone?", "Find my phone rings it out loud from a secret codeword. Set it up under Find my phone.")
         }
     }
     if (editing) {

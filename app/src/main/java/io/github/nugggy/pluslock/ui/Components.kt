@@ -275,16 +275,34 @@ fun ChoiceDialog(title: String, options: Map<String, String>, selected: String, 
 val swatches = listOf(
     0xFF7FB2FF.toInt(), 0xFF4BE38A.toInt(), 0xFFFF6BE0.toInt(), 0xFFFFC75E.toInt(),
     0xFFFF5E5E.toInt(), 0xFF5EE4FF.toInt(), 0xFFB388FF.toInt(), 0xFFFFFFFF.toInt(),
+    0xFFFF8A3D.toInt(), 0xFFFFF35E.toInt(), 0xFFA6FF4D.toInt(), 0xFF00E5B0.toInt(),
+    0xFF3D7BFF.toInt(), 0xFF8A3DFF.toInt(), 0xFFFF3D8A.toInt(), 0xFFFFB3C7.toInt(),
 )
 
+/** Swatches in two rows, plus a hue slider for any colour in between. */
 @Composable
-fun ColourRow(title: String, selected: Int, allowAuto: Boolean = false, onSelect: (Int) -> Unit) {
+fun ColourRow(title: String, selected: Int, allowAuto: Boolean = false, hue: Boolean = true, onSelect: (Int) -> Unit) {
     Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) {
         Text(title, style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.padding(top = 8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (allowAuto) Swatch(null, selected == 0) { onSelect(0) }
-            swatches.forEach { c -> Swatch(c, selected == c) { onSelect(c) } }
+        val all: List<Int?> = (if (allowAuto) listOf<Int?>(null) else emptyList()) + swatches
+        all.chunked(8).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                row.forEach { c -> Swatch(c, if (c == null) selected == 0 else selected == c) { onSelect(c ?: 0) } }
+            }
+        }
+        if (hue && selected != 0) {
+            val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(selected, it) }
+            var h by remember(selected) { mutableFloatStateOf(hsv[0]) }
+            Slider(
+                value = h,
+                onValueChange = { h = it },
+                onValueChangeFinished = { onSelect(android.graphics.Color.HSVToColor(floatArrayOf(h, hsv[1].coerceAtLeast(0.55f), 1f))) },
+                valueRange = 0f..360f,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = Color(android.graphics.Color.HSVToColor(floatArrayOf(h, hsv[1].coerceAtLeast(0.55f), 1f))),
+                ),
+            )
         }
     }
 }
@@ -293,7 +311,7 @@ fun ColourRow(title: String, selected: Int, allowAuto: Boolean = false, onSelect
 private fun Swatch(colour: Int?, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(30.dp)
+            .size(28.dp)
             .clip(CircleShape)
             .background(if (colour == null) MaterialTheme.colorScheme.surfaceVariant else Color(colour))
             .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else Color(0x33FFFFFF), CircleShape)

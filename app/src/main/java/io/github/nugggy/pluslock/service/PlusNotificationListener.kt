@@ -21,6 +21,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
 import io.github.nugggy.pluslock.core.Apps
+import io.github.nugggy.pluslock.core.FindPhone
 import io.github.nugggy.pluslock.core.Haptics
 import io.github.nugggy.pluslock.core.Hours
 import io.github.nugggy.pluslock.core.Notifs
@@ -110,23 +111,31 @@ class PlusNotificationListener : NotificationListenerService() {
         if (!firstPost && alertOnce) return
 
         val latest = entries.maxByOrNull { it.time } ?: entries.last()
+        val fresh = entries.filter { it.msgId in newIds }.ifEmpty { listOf(latest) }
+
+        // Find my phone: the secret codeword in a new message sets the phone ringing.
+        fresh.firstOrNull { FindPhone.matches(it.title, "${it.title} ${it.body}") }?.let {
+            FindPhone.start(this, it.title.ifBlank { app })
+        }
+
         // People you've marked as VIP get through holds, pauses, quiet hours and Do Not Disturb.
         val rule = LightingRules.find(latest.title, latest.body)
         val vip = rule?.vip == true
+        val urgent = P.keywordsOn.value && fresh.any { matchesKeyword("${it.title} ${it.body}") }
 
         // Held apps go quiet until the end of the hold window, then come back on their own.
-        if (isHeld(pkg) && !vip) {
+        if (isHeld(pkg) && !vip && !(urgent && P.keywordsBreakDnd.value)) {
             runCatching { snoozeNotification(sbn.key, Hours.millisUntilHour(P.holdEnd.value)) }
             return
         }
 
-        if (ranking.importance < NotificationManager.IMPORTANCE_DEFAULT) return
-        if (PlusAccessibilityService.instance?.foregroundPkg == pkg) return
+        // Keyword alerts still count for chats you've set to silent.
+        if (ranking.importance < NotificationManager.IMPORTANCE_DEFAULT && !urgent) return
+        if (PlusAccessibilityService.instance?.foregroundPkg == pkg && !urgent) return
         val dnd = currentInterruptionFilter > NotificationManager.INTERRUPTION_FILTER_ALL
 
         val profile = Profiles.get(pkg)
         val title = latest.title.ifBlank { app }
-        val urgent = P.keywordsOn.value && matchesKeyword("${latest.title} ${latest.body}")
         val breakThrough = urgent && P.keywordsBreakDnd.value || vip
         unseen[sbn.key] = (unseen[sbn.key] ?: 0) + newIds.size
 
@@ -140,20 +149,28 @@ class PlusNotificationListener : NotificationListenerService() {
         val quiet = P.lightingQuietOn.value && Hours.inWindow(P.lightingQuietStart.value, P.lightingQuietEnd.value)
         val paused = Silence.isActive(svc?.foregroundPkg.orEmpty()) || (P.lightingLandscapeOff.value && svc?.isLandscape == true)
         val lightingAllowed = !(dnd && P.lightingRespectDnd.value) && !quiet && !paused
-        if (svc != null && P.lightingOn.value && profile?.noLighting != true && (lightingAllowed || breakThrough)) {
-            val colour = rule?.colour?.takeIf { it != 0 } ?: colourFor(pkg, n, profile?.edgeColour ?: 0)
+        val normalGlow = P.lightingOn.value && profile?.noLighting != true && (lightingAllowed || breakThrough)
+        // Keyword alerts glow on their own, even with edge lighting off, paused or in quiet hours.
+        val keywordGlow = urgent && P.keywordsGlow.value && (!dnd || breakThrough)
+        if (svc != null && (normalGlow || keywordGlow)) {
+            val colour = if (keywordGlow) P.keywordsColour.value
+                else rule?.colour?.takeIf { it != 0 } ?: colourFor(pkg, n, profile?.edgeColour ?: 0)
+            val wake = (keywordGlow && P.keywordsWake.value) ||
+                (P.lightingWake.value && (!P.lightingWakeVip.value || vip))
             svc.lighting.show(
                 LightAlert(
                     colour = colour,
                     icon = if (secret) null else Apps.icon(this, pkg),
                     title = if (secret) null else shownTitle,
                     text = if (secret) null else shownText,
-                    effect = rule?.effect?.takeIf { it.isNotBlank() } ?: if (urgent) "PULSE" else null,
+                    effect = if (keywordGlow) P.keywordsEffect.value else rule?.effect?.takeIf { it.isNotBlank() },
                     key = sbn.key,
                     count = if (P.bubbleGroup.value) unseen[sbn.key] ?: 1 else 1,
                     open = n.contentIntent,
                     canReply = ReplyTargets.has(sbn.key),
                     locked = locked,
+                    wake = wake,
+                    durationMs = if (keywordGlow) P.keywordsDuration.value * 1000L else null,
                 )
             )
             lit[sbn.key] = colour
@@ -162,7 +179,11 @@ class PlusNotificationListener : NotificationListenerService() {
         if (vip && rule?.haptic.orEmpty().let { it.isNotEmpty() && it != "NONE" }) {
             Haptics.play(this, rule!!.haptic, app, urgent = dnd)
         } else if (urgent && (!dnd || breakThrough)) {
-            Haptics.play(this, "SOS", app, urgent = breakThrough)
+            Haptics.play(this, P.keywordsHaptic.value, app, urgent = breakThrough)
+        }
+        if (urgent && (!dnd || breakThrough)) {
+            if (P.keywordsTorch.value) FindPhone.blinkTorch(this)
+            if (P.keywordsSound.value) FindPhone.chime(this)
         } else if (!dnd && P.hapticsOn.value && profile != null && profile.haptic != "NONE") {
             Haptics.play(this, profile.haptic, app)
         }
@@ -249,8 +270,11 @@ class PlusNotificationListener : NotificationListenerService() {
     }
 
     private fun matchesKeyword(text: String): Boolean =
-        P.keywords.value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-            .any { Regex("\\b" + Regex.escape(it) + "\\b", RegexOption.IGNORE_CASE).containsMatchIn(text) }
+        P.keywords.value.split(',').map { it.trim() }.filter { it.isNotEmpty() }.any {
+            if (P.keywordsPartial.value) text.contains(it, ignoreCase = true)
+            // Letters or digits either side mean it's part of a longer word. Unlike \b, this copes with emoji and accents.
+            else Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(it) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE).containsMatchIn(text)
+        }
 
     // ---- unread reminder: a soft glow every few minutes while something is still unread ----
 

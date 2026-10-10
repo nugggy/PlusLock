@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.ViewSidebar
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.PhonelinkRing
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.History
@@ -109,6 +110,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
             Section("Light and colour") {
                 Module(Icons.Rounded.WbIridescent, "Edge lighting", "A glow and a preview bubble you can tap, swipe or reply from", P.lightingOn) { nav.go(Screen.Lighting) }
                 Module(Icons.Rounded.Lens, "Camera ring", "A battery ring around the selfie camera", P.ringOn) { nav.go(Screen.Ring) }
+                Module(Icons.Rounded.BatteryChargingFull, "Charging effects", "Liquid, halo, lightning and more when you plug in, plus a glow that stays on", P.chargeAnimOn) { nav.go(Screen.Charging) }
                 Module(Icons.Rounded.Wallpaper, "Living sky wallpaper", "A live wallpaper that follows the time of day and the weather", null) { nav.go(Screen.Wallpaper) }
                 Module(Icons.Rounded.Palette, "Look and feel", "Camera island, volume panel, extra dim, lock screen clock and more", null) { nav.go(Screen.Look) }
             }
@@ -117,6 +119,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
             Section("Notifications") {
                 Module(Icons.Rounded.History, "Notification vault", "History you can search, and messages people unsend", P.vaultOn) { nav.go(Screen.Vault) }
                 Module(Icons.Rounded.Vibration, "Haptics, keywords and quiet", "Feel who is messaging, keyword alerts, work-hours hold", null) { nav.go(Screen.Tricks) }
+                Module(Icons.Rounded.PhonelinkRing, "Find my phone", "Text it a secret codeword and it rings, flashes and buzzes, even on silent", P.findOn) { nav.go(Screen.FindPhone) }
             }
         }
         item {

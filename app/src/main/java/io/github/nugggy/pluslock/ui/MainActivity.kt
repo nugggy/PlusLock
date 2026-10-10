@@ -38,6 +38,8 @@ sealed class Screen {
     data object Panel : Screen()
     data object ScreenTime : Screen()
     data object Backup : Screen()
+    data object Charging : Screen()
+    data object FindPhone : Screen()
 
     companion object {
         fun fromExtra(s: String?): Screen? = when (s) {
@@ -45,6 +47,8 @@ sealed class Screen {
             "updates" -> Updates
             "battery" -> Battery
             "panel" -> Panel
+            "find" -> FindPhone
+            "charging" -> Charging
             else -> null
         }
     }
@@ -99,6 +103,8 @@ class MainActivity : ComponentActivity() {
                             Screen.Panel -> PanelScreen(nav)
                             Screen.ScreenTime -> ScreenTimeScreen(nav, resumeTick)
                             Screen.Backup -> BackupScreen(nav)
+                            Screen.Charging -> ChargingScreen(nav)
+                            Screen.FindPhone -> FindPhoneScreen(nav)
                         }
                     }
                 }

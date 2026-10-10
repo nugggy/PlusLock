@@ -105,6 +105,16 @@ object P {
     val lightingQuietEnd = IntPref("lighting_quiet_end", 7)
     val lightingReminder = IntPref("lighting_reminder_min", 0) // 0 off
     val lightingRulesJson = StringPref("lighting_rules_json", "[]")
+    val lightingSpeed = IntPref("lighting_speed_pct", 100)
+    val lightingSoftness = IntPref("lighting_softness_pct", 100)
+    val lightingOpacity = IntPref("lighting_opacity_pct", 100)
+    val lightingColour2 = IntPref("lighting_colour2", 0xFFFF6BE0.toInt())
+    val lightingComets = IntPref("lighting_comets", 2)
+    val lightingTail = IntPref("lighting_tail_pct", 18)
+    val lightingWake = BoolPref("lighting_wake", false)
+    val lightingWakePocket = BoolPref("lighting_wake_pocket", true)
+    val lightingWakeVip = BoolPref("lighting_wake_vip_only", false)
+    val lightingAutoPreview = BoolPref("lighting_auto_preview", true)
 
     // Notification bubble
     val bubbleLines = IntPref("bubble_lines", 1)
@@ -133,6 +143,57 @@ object P {
     val ringHideLandscape = BoolPref("ring_hide_landscape", true)
     val ringShowTrack = BoolPref("ring_track", true)
     val ringShowEta = BoolPref("ring_eta", true)
+    val ringShowPct = BoolPref("ring_pct", false)
+    val ringStyle = StringPref("ring_style", "SOLID") // SOLID, GRADIENT, RAINBOW, SEGMENTS, DOTS
+    val ringColour2 = IntPref("ring_colour2", 0xFFFF6BE0.toInt())
+    val ringGlow = IntPref("ring_glow_pct", 0)
+    val ringOpacity = IntPref("ring_opacity_pct", 100)
+    val ringChargeAnim = StringPref("ring_charge_anim", "DOT") // DOT, COMET, PULSE, SPIN, FILL, NONE
+    val ringChargeColour = IntPref("ring_charge_colour", 0xFF4BE38A.toInt())
+    val ringClockwise = BoolPref("ring_clockwise", true)
+    val ringStart = IntPref("ring_start_deg", -90)
+    val ringLowLevel = IntPref("ring_low_level", 15)
+    val ringWarnLevel = IntPref("ring_warn_level", 30)
+    val ringLowPulse = BoolPref("ring_low_pulse", true)
+    val ringHideFull = BoolPref("ring_hide_full", false)
+    val ringWhere = StringPref("ring_where", "ALL") // ALL, LOCK, UNLOCKED
+    val ringNotifFlash = BoolPref("ring_notif_flash", false)
+
+    // Charging effects
+    val chargeGlowStay = BoolPref("chargefx_glow_stay", false)
+    val chargeGlowWhere = StringPref("chargefx_glow_where", "ALL") // ALL, LOCK
+    val chargeGlowEffect = StringPref("chargefx_glow_effect", "PULSE")
+    val chargeGlowShape = StringPref("chargefx_glow_shape", "EDGE")
+    val chargeGlowThickness = IntPref("chargefx_glow_thickness_dp", 6)
+    val chargeGlowLevel = BoolPref("chargefx_glow_level", true)
+    val chargeGlowSpeed = IntPref("chargefx_glow_speed_pct", 100)
+    val chargeGlowOpacity = IntPref("chargefx_glow_opacity_pct", 100)
+    val chargeColourMode = StringPref("chargefx_colour_mode", "LEVEL") // LEVEL, CUSTOM, RAINBOW
+    val chargeColour = IntPref("chargefx_colour", 0xFF4BE38A.toInt())
+    val chargeAnimOn = BoolPref("chargefx_anim_on", false)
+    val chargeAnimStyle = StringPref("chargefx_anim_style", "BUBBLE") // BUBBLE, RING, BATTERY, ORB
+    val chargeAnimWhen = StringPref("chargefx_anim_when", "PLUG") // PLUG, WAKE
+    val chargeAnimSeconds = IntPref("chargefx_anim_seconds", 6) // 0 until tapped
+    val chargeAnimLockOnly = BoolPref("chargefx_anim_lock_only", true)
+    val chargeAnimDim = IntPref("chargefx_anim_dim_pct", 85)
+    val chargeAnimSize = IntPref("chargefx_anim_size_pct", 100)
+    val chargeAnimEta = BoolPref("chargefx_anim_eta", true)
+    val chargeAnimWakeOnPlug = BoolPref("chargefx_anim_wake", false)
+    val chargeColour2 = IntPref("chargefx_colour2", 0xFF5EE4FF.toInt())
+    val chargeAnimPosition = StringPref("chargefx_anim_position", "CENTRE") // TOP, CENTRE, BOTTOM
+    val chargeAnimPct = BoolPref("chargefx_anim_pct", true)
+    val chargeAnimDecimals = BoolPref("chargefx_anim_decimals", false)
+    val chargeAnimWatts = BoolPref("chargefx_anim_watts", true)
+    val chargeAnimTemp = BoolPref("chargefx_anim_temp", false)
+    val chargeAnimClock = BoolPref("chargefx_anim_clock", false)
+    val chargeAnimBolt = BoolPref("chargefx_anim_bolt", true)
+    val chargeAnimParticles = IntPref("chargefx_anim_particles_pct", 100)
+    val chargeAnimSpeed = IntPref("chargefx_anim_speed_pct", 100)
+    val chargeAnimGlow = IntPref("chargefx_anim_glow_pct", 100)
+    val chargeAnimFont = StringPref("chargefx_anim_font", "SANS") // SANS, THIN, BOLD, MONO, SERIF, CONDENSED
+    val chargePlugHaptic = StringPref("chargefx_plug_haptic", "NONE")
+    val chargeUnplugGlow = BoolPref("chargefx_unplug_glow", false)
+    val chargeFullAlert = BoolPref("chargefx_full_alert", false)
 
     // Charge guard
     val chargeAlertOn = BoolPref("charge_alert_on", false)
@@ -149,6 +210,28 @@ object P {
     val keywordsOn = BoolPref("keywords_on", false)
     val keywords = StringPref("keywords", "urgent, emergency")
     val keywordsBreakDnd = BoolPref("keywords_dnd", true)
+    val keywordsGlow = BoolPref("keywords_glow", true)
+    val keywordsWake = BoolPref("keywords_wake", true)
+    val keywordsColour = IntPref("keywords_colour", 0xFFFF5E5E.toInt())
+    val keywordsEffect = StringPref("keywords_effect", "PULSE")
+    val keywordsDuration = IntPref("keywords_duration_s", 15)
+    val keywordsHaptic = StringPref("keywords_haptic", "SOS")
+    val keywordsTorch = BoolPref("keywords_torch", false)
+    val keywordsSound = BoolPref("keywords_sound", false)
+    val keywordsPartial = BoolPref("keywords_partial", false)
+
+    // Find my phone: a secret codeword in any message sets it ringing
+    val findOn = BoolPref("find_on", false)
+    val findCode = StringPref("find_code", "")
+    val findSenders = StringPref("find_senders", "") // comma separated names, blank for anyone
+    val findMinutes = IntPref("find_minutes", 2)
+    val findSound = BoolPref("find_sound", true)
+    val findLoud = BoolPref("find_loud", true)
+    val findVibrate = BoolPref("find_vibrate", true)
+    val findTorch = BoolPref("find_torch", true)
+    val findScreen = BoolPref("find_screen", true)
+    val findFlash = BoolPref("find_flash", true)
+    val findMessage = StringPref("find_message", "")
 
     // Motion gestures
     val shakeTorch = BoolPref("motion_shake_torch", false)

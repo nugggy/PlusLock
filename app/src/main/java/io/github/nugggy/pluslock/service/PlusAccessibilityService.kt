@@ -46,6 +46,8 @@ class PlusAccessibilityService : AccessibilityService() {
         private set
     lateinit var ring: CameraRing
         private set
+    lateinit var chargeFx: ChargingFx
+        private set
     lateinit var keepAwake: KeepAwake
         private set
     lateinit var profiles: ProfileEngine
@@ -91,6 +93,7 @@ class PlusAccessibilityService : AccessibilityService() {
         gestures = EdgeGestures(this)
         lighting = EdgeLighting(this)
         ring = CameraRing(this)
+        chargeFx = ChargingFx(this)
         keepAwake = KeepAwake(this)
         focus = FocusGuard(this)
         guard = AppGuard(this)
@@ -139,9 +142,19 @@ class PlusAccessibilityService : AccessibilityService() {
                     motion.screenOff(); netSpeed.remove(); guard.onScreenOff(); statusTap.resume()
                     panel.hide(); volumePanel.hide(); island.remove()
                     lighting.hide(immediate = true)
+                    chargeFx.onScreenOff()
+                    if (P.ringWhere.value != "ALL") ring.refresh()
                 }
-                Intent.ACTION_SCREEN_ON -> { motion.refresh(); netSpeed.refresh(); island.refresh() }
-                Intent.ACTION_USER_PRESENT -> guard.onUnlocked()
+                Intent.ACTION_SCREEN_ON -> {
+                    motion.refresh(); netSpeed.refresh(); island.refresh()
+                    chargeFx.onScreenOn()
+                    if (P.ringWhere.value != "ALL") ring.refresh()
+                }
+                Intent.ACTION_USER_PRESENT -> {
+                    guard.onUnlocked()
+                    chargeFx.onUnlocked()
+                    if (P.ringWhere.value != "ALL") ring.refresh()
+                }
             }
             lockClock.refresh()
         }
@@ -180,6 +193,7 @@ class PlusAccessibilityService : AccessibilityService() {
         when {
             key.startsWith("gesture") || key.startsWith("handle") -> gestures.refresh()
             key.startsWith("ring") -> ring.refresh()
+            key.startsWith("chargefx") || key == "charging_glow" || key == "lighting_landscape_off" -> chargeFx.refresh()
             key == "caffeine_until" -> keepAwake.update()
             key == "profiles_json" || key == "profiles_on" -> profiles.reapply()
             key.startsWith("motion") -> motion.refresh()
@@ -231,6 +245,7 @@ class PlusAccessibilityService : AccessibilityService() {
             lockClock.refresh()
             island.refresh()
             filter.refresh()
+            chargeFx.refresh()
         }, 250)
     }
 
@@ -255,6 +270,7 @@ class PlusAccessibilityService : AccessibilityService() {
         if (::gestures.isInitialized) gestures.remove()
         if (::lighting.isInitialized) lighting.hide(immediate = true)
         if (::ring.isInitialized) ring.remove()
+        if (::chargeFx.isInitialized) chargeFx.release()
         if (::keepAwake.isInitialized) keepAwake.release()
         if (::focus.isInitialized) focus.dismiss()
         if (::profiles.isInitialized) profiles.restoreAll()

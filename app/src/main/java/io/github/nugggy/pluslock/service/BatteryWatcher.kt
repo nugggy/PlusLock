@@ -17,6 +17,7 @@ class BatteryWatcher(private val svc: PlusAccessibilityService) {
     private var alerted = false
     private var wasCharging: Boolean? = null
     private var lastPct = 100
+    private var lastFullPct = -1
     private val bm = svc.getSystemService(BatteryManager::class.java)
 
     private val receiver = object : BroadcastReceiver() {
@@ -55,6 +56,14 @@ class BatteryWatcher(private val svc: PlusAccessibilityService) {
         scheduleBedtime()
     }
 
+    /** The level with decimals, from the charge counter and the battery's rated size. */
+    private fun exactLevel(pct: Int): Float? {
+        val design = BatteryLog.designMah(svc) ?: return null
+        val counter = runCatching { bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER) }.getOrDefault(0)
+        if (counter <= 0) return null
+        return (counter / 1000f / design * 100f).coerceIn(pct.toFloat(), pct + 0.99f)
+    }
+
     private fun handle(i: Intent) {
         val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
@@ -69,14 +78,20 @@ class BatteryWatcher(private val svc: PlusAccessibilityService) {
 
         val prev = wasCharging
         wasCharging = charging
+        val volts = i.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / 1000f
+        val microAmps = if (charging) runCatching { bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) }.getOrDefault(0) else 0
+        val watts = if (microAmps == Int.MIN_VALUE) 0f else kotlin.math.abs(microAmps) / 1_000_000f * volts
+        svc.chargeFx.update(
+            ChargeState(pct, charging, eta, watts, i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f, exactLevel(pct)),
+            volts,
+        )
         if (prev == false && charging) {
-            val microAmps = runCatching { bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) }.getOrDefault(0)
-            val volts = i.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / 1000f
-            IslandState.onPlugged(pct, kotlin.math.abs(microAmps) / 1_000_000f * volts)
+            IslandState.onPlugged(pct, watts)
+            svc.chargeFx.onPlugged()
         }
-        if (prev == false && charging && P.chargingGlow.value) {
-            svc.lighting.show(0xFF4BE38A.toInt(), null, "Charging", "$pct%", effectOverride = "PULSE")
-        }
+        if (prev == true && !charging) svc.chargeFx.onUnplugged()
+        if (charging && pct >= 100 && lastFullPct in 0..99) svc.chargeFx.onFull()
+        lastFullPct = if (charging) pct else -1
         if (!charging) alerted = false
         if (charging && !alerted && P.chargeAlertOn.value && pct >= P.chargeAlertLevel.value) {
             alerted = true

@@ -18,6 +18,7 @@ object Notifs {
     const val ID_CHARGE = 200
     const val ID_BEDTIME = 201
     const val ID_DIGEST = 300
+    const val ID_FIND = 210
     const val ID_UNSENT_BASE = 1000
 
     fun createChannels(ctx: Context) {
