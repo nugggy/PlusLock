@@ -520,6 +520,7 @@ fun DeckScreen(nav: Nav) {
                 Row2("Sound mode", "Cycles ring, vibrate and silent")
                 Row2("Control deck", "Opens the mixer over any app")
                 Row2("Edge gestures", "Turns the handles on and off")
+                Row2("Pause lighting", "Pauses edge lighting and bubbles: 30 min, 1 hour, 2 hours, until off")
             }
         }
         item { Note("To add tiles, pull down Quick Settings fully, tap the pencil (edit) icon and drag the PlusLock tiles into place.") }
