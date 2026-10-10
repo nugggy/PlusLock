@@ -34,7 +34,18 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.WbIridescent
+import android.widget.Toast
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import io.github.nugggy.pluslock.BuildConfig
+import io.github.nugggy.pluslock.update.Release
+import io.github.nugggy.pluslock.update.Updater
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -97,6 +108,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
             )
         }
         if (missing > 0) item { SetupCard(perms, missing) { open(Status.appInfoIntent(ctx)) } }
+        item { UpdateCard(nav) }
 
         item {
             Section("Touch and gestures") {
@@ -173,6 +185,54 @@ private fun SetupCard(perms: List<Perm>, missing: Int, openAppInfo: () -> Unit) 
                 modifier = Modifier.padding(top = 6.dp),
             )
             TextButton(onClick = openAppInfo) { Text("Open App info") }
+        }
+    }
+}
+
+/** Version, a check button, and a way to the new version when there is one. */
+@Composable
+private fun UpdateCard(nav: Nav) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val status by P.updateStatus.observe()
+    var busy by remember { mutableStateOf(false) }
+    var newer by remember { mutableStateOf<Release?>(null) }
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(if (busy) "Checking..." else status.ifBlank { "Not checked yet" }, style = MaterialTheme.typography.bodyMedium)
+            }
+            Spacer(Modifier.width(12.dp))
+            val r = newer
+            if (r != null) {
+                Button(onClick = { nav.go(Screen.Updates) }) { Text("Get ${r.tag}") }
+            } else {
+                FilledTonalButton(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch {
+                        val res = withContext(Dispatchers.IO) { runCatching { Updater.fetchLatest() } }
+                        P.updateLastCheck.value = System.currentTimeMillis()
+                        res.onSuccess {
+                            newer = it?.takeIf { rel -> Updater.isNewer(rel) }
+                            P.updateStatus.value = when {
+                                it == null -> "No releases published yet"
+                                Updater.isNewer(it) -> "${it.tag} available"
+                                else -> "Up to date"
+                            }
+                        }.onFailure { P.updateStatus.value = "Couldn't reach GitHub: ${it.message}" }
+                        busy = false
+                        Toast.makeText(ctx, res.fold(
+                            { if (newer != null) "Pimp my Phone ${newer?.tag} is ready to install" else "You have the latest version" },
+                            { "Couldn't reach GitHub. Check your connection." },
+                        ), Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("Check for updates") }
+            }
         }
     }
 }
