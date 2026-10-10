@@ -106,13 +106,23 @@ class VolumePanel(private val svc: PlusAccessibilityService) {
         val b = svc.screenBounds()
         val v = PanelRoot(svc, am, stream, expanded || P.volPanelExpanded.value,
             onTouch = { bumpHide() }, onToggle = ::toggleExpanded, onOutside = { hide() })
-        val lp = svc.overlayParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, touchable = true)
+        // Measure the panel ourselves and give the window that exact size and place. Some phones,
+        // the OnePlus 15 included, keep a wrap-content overlay at its first size and cut off the rest.
+        val margin = svc.dp(P.volPanelMargin.value.toFloat()).toInt()
+        v.measure(
+            View.MeasureSpec.makeMeasureSpec(b.width() - margin * 2, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(b.height(), View.MeasureSpec.AT_MOST),
+        )
+        val w = v.measuredWidth
+        val h = v.measuredHeight
+        val lp = svc.overlayParams(w, h, touchable = true)
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         val right = P.volPanelSide.value != "LEFT"
-        lp.gravity = (if (right) Gravity.END else Gravity.START) or Gravity.CENTER_VERTICAL
-        lp.x = svc.dp(P.volPanelMargin.value.toFloat()).toInt()
-        lp.y = b.height() * P.volPanelOffset.value / 100
+        lp.gravity = Gravity.TOP or Gravity.START
+        lp.x = if (right) b.width() - w - margin else margin
+        lp.y = ((b.height() - h) / 2 + b.height() * P.volPanelOffset.value / 100).coerceIn(0, (b.height() - h).coerceAtLeast(0))
         if (!svc.addOverlay(v, lp)) { Diag.log("volume panel", "couldn't add the panel window"); return null }
+        Diag.log("volume panel", "window ${w}x$h px at ${lp.x},${lp.y}")
         view = v
         return v
     }
@@ -222,6 +232,7 @@ private class PanelRoot(
                 setTextColor(if (light) 0xAA000000.toInt() else 0xCCFFFFFF.toInt()); textSize = 18f; gravity = Gravity.CENTER
                 typeface = Typeface.DEFAULT_BOLD
                 minHeight = (44 * d).toInt()
+                maxLines = 1
                 contentDescription = if (expanded) "Show fewer volumes" else "Show every volume and app"
                 if (expanded) background = GradientDrawable().apply { cornerRadius = 22 * d; setColor(if (light) 0x14000000 else 0x22FFFFFF) }
             }
