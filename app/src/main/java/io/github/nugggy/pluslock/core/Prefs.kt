@@ -168,7 +168,7 @@ object P {
     val chargeGlowLevel = BoolPref("chargefx_glow_level", true)
     val chargeGlowSpeed = IntPref("chargefx_glow_speed_pct", 100)
     val chargeGlowOpacity = IntPref("chargefx_glow_opacity_pct", 100)
-    val chargeColourMode = StringPref("chargefx_colour_mode", "LEVEL") // LEVEL, CUSTOM, RAINBOW
+    val chargeColourMode = StringPref("chargefx_colour_mode", "LEVEL") // LEVEL, CUSTOM, DUO (several blended), CYCLE (several in turn), RAINBOW
     val chargeColour = IntPref("chargefx_colour", 0xFF4BE38A.toInt())
     val chargeAnimOn = BoolPref("chargefx_anim_on", false)
     val chargeAnimStyle = StringPref("chargefx_anim_style", "BUBBLE") // BUBBLE, RING, BATTERY, ORB
@@ -180,6 +180,15 @@ object P {
     val chargeAnimEta = BoolPref("chargefx_anim_eta", true)
     val chargeAnimWakeOnPlug = BoolPref("chargefx_anim_wake", false)
     val chargeColour2 = IntPref("chargefx_colour2", 0xFF5EE4FF.toInt())
+    /** Comma-separated colours for the "several colours" modes. Empty means the first and second colour. */
+    val chargeColours = StringPref("chargefx_colours", "")
+    val chargeColourLow = IntPref("chargefx_colour_low", 0xFFFF5252.toInt())
+    val chargeColourMid = IntPref("chargefx_colour_mid", 0xFFFFD84D.toInt())
+    val chargeColourHigh = IntPref("chargefx_colour_high", 0xFF4BE38A.toInt())
+    val chargeTextColour = IntPref("chargefx_text_colour", 0xFFFFFFFF.toInt())
+    val chargeSparkColour = IntPref("chargefx_spark_colour", 0xFFFFFFFF.toInt())
+    val chargeBoltColour = IntPref("chargefx_bolt_colour", 0xFFFFD84D.toInt())
+    val chargeBgColour = IntPref("chargefx_bg_colour", 0xFF000000.toInt())
     val chargeAnimPosition = StringPref("chargefx_anim_position", "CENTRE") // TOP, CENTRE, BOTTOM
     val chargeAnimPct = BoolPref("chargefx_anim_pct", true)
     val chargeAnimDecimals = BoolPref("chargefx_anim_decimals", false)

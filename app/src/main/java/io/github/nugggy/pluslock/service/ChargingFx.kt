@@ -63,14 +63,41 @@ data class ChargeState(
     val exact: Float? = null,
 )
 
-/** Colour for a charge level, following the chosen colour mode. */
+const val MAX_CHARGE_COLOURS = 8
+
+/** The colours for the "several colours" modes, always at least two. */
+fun chargePalette(): List<Int> {
+    val saved = P.chargeColours.value.split(',').mapNotNull { it.trim().toLongOrNull(16)?.toInt() }
+    return if (saved.size >= 2) saved.take(MAX_CHARGE_COLOURS) else listOf(P.chargeColour.value, P.chargeColour2.value)
+}
+
+fun saveChargePalette(colours: List<Int>) {
+    P.chargeColours.value = colours.joinToString(",") { "%08X".format(it) }
+}
+
+/** Mixes two colours, [f] of the way from [a] to [b]. */
+fun blendColour(a: Int, b: Int, f: Float): Int {
+    fun ch(x: Int, y: Int) = (x + (y - x) * f).toInt().coerceIn(0, 255)
+    return Color.argb(ch(Color.alpha(a), Color.alpha(b)), ch(Color.red(a), Color.red(b)), ch(Color.green(a), Color.green(b)), ch(Color.blue(a), Color.blue(b)))
+}
+
+/** Colour for a charge level, following the chosen colour mode. [hueShift] moves the changing modes along. */
 fun chargeColour(level: Int, hueShift: Float = 0f): Int = when (P.chargeColourMode.value) {
-    "CUSTOM", "DUO" -> P.chargeColour.value
+    "CUSTOM" -> P.chargeColour.value
+    "DUO" -> chargePalette().first()
+    "CYCLE" -> {
+        // Each colour holds for a moment, then fades into the next.
+        val pal = chargePalette()
+        val pos = (hueShift * 4f) % pal.size
+        val i = pos.toInt()
+        val f = ((pos - i - 0.5f) * 2f).coerceIn(0f, 1f)
+        blendColour(pal[i % pal.size], pal[(i + 1) % pal.size], f)
+    }
     "RAINBOW" -> Color.HSVToColor(floatArrayOf((hueShift * 360f) % 360f, 0.75f, 1f))
     else -> when {
-        level < 20 -> 0xFFFF5252.toInt()
-        level < 50 -> 0xFFFFD84D.toInt()
-        else -> 0xFF4BE38A.toInt()
+        level < 20 -> P.chargeColourLow.value
+        level < 50 -> P.chargeColourMid.value
+        else -> P.chargeColourHigh.value
     }
 }
 
@@ -173,7 +200,7 @@ class ChargingFx(private val svc: PlusAccessibilityService) {
         val rainbow = P.chargeColourMode.value == "RAINBOW"
         val style = GlowStyle(
             colour = chargeColour(state.level),
-            colour2 = P.chargeColour2.value,
+            colour2 = chargePalette()[1],
             effect = if (rainbow) "RAINBOW" else if (P.chargeColourMode.value == "DUO") "DUO" else P.chargeGlowEffect.value,
             thickness = svc.dp(P.chargeGlowThickness.value.toFloat()),
             shape = P.chargeGlowShape.value,
@@ -263,7 +290,11 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
     private var dim = 0f
     private var position = ""
     private var mode = ""
-    private var colour2 = 0
+    private var palette = listOf(0, 0)
+    private var textColour = Color.WHITE
+    private var sparkColour = Color.WHITE
+    private var boltColour = 0
+    private var bgColour = Color.BLACK
     private var showPct = true
     private var decimals = false
     private var showEta = true
@@ -317,7 +348,13 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         dim = P.chargeAnimDim.value / 100f
         position = P.chargeAnimPosition.value
         mode = P.chargeColourMode.value
-        colour2 = P.chargeColour2.value
+        palette = chargePalette()
+        textColour = P.chargeTextColour.value
+        sparkColour = P.chargeSparkColour.value
+        boltColour = P.chargeBoltColour.value
+        bgColour = P.chargeBgColour.value
+        text.color = textColour
+        sub.color = Color.argb(0xDD, Color.red(textColour), Color.green(textColour), Color.blue(textColour))
         showPct = P.chargeAnimPct.value
         decimals = P.chargeAnimDecimals.value
         showEta = P.chargeAnimEta.value
@@ -358,9 +395,12 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
 
     private fun colour(): Int = chargeColour(state.level, t * 0.08f)
 
+    /** With several colours blended, the i-th of them in turn; otherwise the main colour. */
+    private fun pal(i: Int, col: Int): Int = if (mode == "DUO") palette[((i % palette.size) + palette.size) % palette.size] else col
+
     override fun onDraw(c: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
-        c.drawColor(Color.argb((255 * dim).toInt(), 0, 0, 0))
+        c.drawColor(Color.argb((255 * dim).toInt(), Color.red(bgColour), Color.green(bgColour), Color.blue(bgColour)))
         val cx = w / 2f
         val cy = when (position) { "TOP" -> h * 0.32f; "BOTTOM" -> h * 0.6f; else -> h * 0.44f }
         val r = min(w, h) * 0.3f * size
@@ -416,7 +456,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
             val shift = if (boltInline) text.textSize * 0.28f else 0f
             c.drawText(label, cx + shift, pctY, text)
             if (boltInline) {
-                fill.shader = null; fill.maskFilter = null; fill.color = 0xFFFFD84D.toInt()
+                fill.shader = null; fill.maskFilter = null; fill.color = boltColour
                 boltPath(cx - tw / 2f - text.textSize * 0.08f, pctY - text.textSize * 0.36f, text.textSize * 0.62f)
                 c.drawPath(path, fill)
             }
@@ -445,7 +485,8 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
     }
 
     private fun shaderFor(top: Float, bottom: Float, col: Int): Shader? =
-        if (mode == "DUO") LinearGradient(0f, top, 0f, bottom, colour2, col, Shader.TileMode.CLAMP) else null
+        // The first colour sits at the bottom, where the fill starts.
+        if (mode == "DUO") LinearGradient(0f, top, 0f, bottom, palette.reversed().toIntArray(), null, Shader.TileMode.CLAMP) else null
 
     /** A filled shape whose top is a moving wave. */
     private fun wave(left: Float, right: Float, surface: Float, bottom: Float, amp: Float, length: Float, phase: Float) {
@@ -515,7 +556,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         c.drawPath(path, fill)
         fill.shader = null
         // Bubbles rising through the water.
-        fill.color = Color.WHITE
+        fill.color = sparkColour
         val count = (24 * particles).toInt()
         for (i in 0 until count) {
             val p = (t * (0.12f + 0.1f * hash(i, 4)) + hash(i, 1)) % 1f
@@ -531,13 +572,17 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         rect.set(cx - r, cy - r, cx + r, cy + r)
         line.shader = null; line.color = col; line.alpha = 40; line.strokeWidth = r * 0.09f
         c.drawOval(rect, line)
-        if (mode == "DUO") line.shader = android.graphics.SweepGradient(cx, cy, intArrayOf(col, colour2, col), null)
+        if (mode == "DUO") {
+            // Sweeps round from the top, through every colour and back to the first.
+            line.shader = android.graphics.SweepGradient(cx, cy, (palette + palette.first()).toIntArray(), null)
+                .apply { setLocalMatrix(android.graphics.Matrix().apply { setRotate(-90f, cx, cy) }) }
+        }
         line.alpha = 255
         if (blur != null) { halo.color = col; halo.strokeWidth = r * 0.13f; halo.maskFilter = blur; c.drawArc(rect, -90f, 360f * lvl, false, halo) }
         c.drawArc(rect, -90f, 360f * lvl, false, line)
         line.shader = null
         // Two orbiting sparks and a slow outer dashed ring.
-        fill.shader = null; fill.maskFilter = null; fill.color = Color.WHITE
+        fill.shader = null; fill.maskFilter = null; fill.color = sparkColour
         for (k in 0..1) {
             val a = t * 1.6f + k * PI.toFloat()
             c.drawCircle(cx + cos(a) * r, cy + sin(a) * r, r * 0.045f, fill)
@@ -570,7 +615,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         fill.shader = shaderFor(top, bottom, col)
         wave(rect.left, rect.right, surface, bottom, r * 0.035f, bw * 0.8f, t * 3f)
         c.drawPath(path, fill)
-        fill.shader = null; fill.color = Color.WHITE
+        fill.shader = null; fill.color = sparkColour
         val count = (12 * particles).toInt()
         for (i in 0 until count) {
             val p = (t * 0.4f + hash(i, 1)) % 1f
@@ -595,11 +640,10 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         // The core breathes, and grows with the charge.
         val core = r * (0.45f + 0.35f * lvl) * (1f + 0.04f * sin(t * 3f))
         fill.maskFilter = blur
-        fill.shader = RadialGradient(cx, cy, core, intArrayOf(Color.WHITE, col, if (mode == "DUO") colour2 else Color.argb(0, Color.red(col), Color.green(col), Color.blue(col))),
-            floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+        val stops = if (mode == "DUO") listOf(sparkColour) + palette else listOf(sparkColour, col, Color.argb(0, Color.red(col), Color.green(col), Color.blue(col)))
+        fill.shader = RadialGradient(cx, cy, core, stops.toIntArray(), null, Shader.TileMode.CLAMP)
         c.drawCircle(cx, cy, core, fill)
         fill.shader = null; fill.maskFilter = null
-        text.color = Color.WHITE
     }
 
     private fun drawBolt(c: Canvas, cx: Float, cy: Float, r: Float, lvl: Float, col: Int, blur: BlurMaskFilter?) {
@@ -639,7 +683,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
             val p = (t * (0.18f + 0.12f * hash(i, 4)) + hash(i, 1)) % 1f
             val d = reach * (1f - p)
             val a = hash(i, 2) * 2 * PI.toFloat() + p * 5f
-            fill.color = if (i % 4 == 0 && mode == "DUO") colour2 else col
+            fill.color = pal(i, col)
             fill.alpha = (255 * (0.2f + 0.8f * p)).toInt()
             c.drawCircle(cx + cos(a) * d, cy + sin(a) * d, r * (0.012f + 0.03f * (1f - p)), fill)
         }
@@ -673,7 +717,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         val surface = bottom - (bottom - top) * lvl
         wave(cx - s, cx + s, surface, bottom, r * 0.04f, r * 0.8f, t * 3f)
         c.drawPath(path, fill)
-        fill.shader = null; fill.color = Color.WHITE
+        fill.shader = null; fill.color = sparkColour
         for (i in 0 until (10 * particles).toInt()) {
             val p = (t * 0.35f + hash(i, 1)) % 1f
             fill.alpha = (140 * (1 - p)).toInt()
@@ -705,7 +749,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
             path.close()
             fill.shader = null
             when {
-                i < lit -> { fill.maskFilter = blur; fill.color = if (mode == "DUO" && i % 2 == 0) colour2 else col }
+                i < lit -> { fill.maskFilter = blur; fill.color = pal(i, col) }
                 i == lit -> { fill.maskFilter = null; fill.color = col; fill.alpha = (60 + 160 * (0.5f + 0.5f * sin(t * 5f))).toInt() }
                 else -> { fill.maskFilter = null; fill.color = 0x22FFFFFF }
             }
@@ -752,7 +796,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
             fill.color = if (on) col else 0x66FFFFFF
             fill.alpha = (base * (0.55f + 0.45f * depth).coerceIn(0.2f, 1f)).toInt()
             c.drawCircle(x, y1, r * (0.05f + 0.025f * depth), fill)
-            fill.color = if (on) (if (mode == "DUO") colour2 else col) else 0x66FFFFFF
+            fill.color = if (on) pal(i + 1, col) else 0x66FFFFFF
             fill.alpha = (base * (0.55f - 0.45f * depth).coerceIn(0.2f, 1f)).toInt()
             c.drawCircle(x, y2, r * (0.05f - 0.025f * depth), fill)
         }
@@ -768,7 +812,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
             val a = hash(i, 2) * 2 * PI.toFloat()
             val d = maxD * p * p
             val d0 = d * 0.82f
-            line.color = if (i % 5 == 0) col else Color.WHITE
+            line.color = if (i % 5 == 0) pal(i / 5, col) else sparkColour
             line.alpha = (255 * p).toInt()
             line.strokeWidth = r * 0.01f + r * 0.025f * p
             c.drawLine(cx + cos(a) * d0, cy + sin(a) * d0, cx + cos(a) * d, cy + sin(a) * d, line)
@@ -790,7 +834,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
             val ox = cx + (hash(b + gen * 13, 1) - 0.5f) * r * 2.6f
             val oy = cy + (hash(b + gen * 13, 2) - 0.6f) * r * 2.2f
             val hue = hash(b + gen * 13, 3) * 360f
-            val bc = if (mode == "LEVEL" || mode == "CUSTOM") col else Color.HSVToColor(floatArrayOf(hue, 0.7f, 1f))
+            val bc = when (mode) { "RAINBOW" -> Color.HSVToColor(floatArrayOf(hue, 0.7f, 1f)); "DUO" -> pal(b + gen, col); else -> col }
             for (k in 0 until sparks) {
                 val a = k * 2 * PI.toFloat() / sparks
                 val d = r * 0.9f * (1 - (1 - p) * (1 - p))
@@ -819,7 +863,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
                 if (y < -size || y > h + size) continue
                 val seed = k * 31 + (y / size).toInt() * 17 + (if (j % 3 == 0) (t * 3).toInt() else 0)
                 val ch = glyphs[((seed % glyphs.length) + glyphs.length) % glyphs.length]
-                code.color = if (j == 0) Color.WHITE else col
+                code.color = if (j == 0) sparkColour else pal(k, col)
                 code.alpha = (255 * (1f - j.toFloat() / trail)).toInt()
                 c.drawText(ch.toString(), x, y, code)
             }
@@ -855,7 +899,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         c.drawPath(path, line)
         c.restore()
         line.shader = null
-        fill.shader = null; fill.maskFilter = null; fill.color = Color.WHITE
+        fill.shader = null; fill.maskFilter = null; fill.color = sparkColour
         c.drawCircle(head, base + ecg(head), r * 0.045f, fill)
     }
 
@@ -865,7 +909,7 @@ class ChargeScreenView(ctx: Context, private val onTap: (() -> Unit)? = null) : 
         rings.forEachIndexed { k, (scale, segs, spin) ->
             val rr = r * scale
             rect.set(cx - rr, cy - rr, cx + rr, cy + rr)
-            line.color = if (k == 1 && mode == "DUO") colour2 else col
+            line.color = pal(k, col)
             line.alpha = 200 - k * 40
             line.strokeWidth = r * (0.05f - k * 0.01f)
             val step = 360f / segs

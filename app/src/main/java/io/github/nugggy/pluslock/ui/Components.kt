@@ -294,19 +294,41 @@ val swatches = listOf(
     0xFF3D7BFF.toInt(), 0xFF8A3DFF.toInt(), 0xFFFF3D8A.toInt(), 0xFFFFB3C7.toInt(),
 )
 
-/** Swatches in two rows, plus a hue slider for any colour in between. */
+/** Darker swatches, for backgrounds. */
+val darkSwatches = listOf(
+    0xFF000000.toInt(), 0xFF101418.toInt(), 0xFF0B1A3A.toInt(), 0xFF1E0B3A.toInt(),
+    0xFF3A0B24.toInt(), 0xFF0B3A24.toInt(), 0xFF3A240B.toInt(), 0xFF2A2A2A.toInt(),
+)
+
+/**
+ * Swatches in two rows, plus a hue slider for any colour in between.
+ * With [shades], softness and brightness sliders as well, so any colour at all can be made.
+ */
 @Composable
-fun ColourRow(title: String, selected: Int, allowAuto: Boolean = false, hue: Boolean = true, onSelect: (Int) -> Unit) {
+fun ColourRow(
+    title: String,
+    selected: Int,
+    allowAuto: Boolean = false,
+    hue: Boolean = true,
+    shades: Boolean = false,
+    options: List<Int> = swatches,
+    onSelect: (Int) -> Unit,
+) {
     Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            if (shades && selected != 0) Text("#%06X".format(selected and 0xFFFFFF), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Spacer(Modifier.padding(top = 8.dp))
-        val all: List<Int?> = (if (allowAuto) listOf<Int?>(null) else emptyList()) + swatches
+        val all: List<Int?> = (if (allowAuto) listOf<Int?>(null) else emptyList()) + options
         all.chunked(8).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                 row.forEach { c -> Swatch(c, if (c == null) selected == 0 else selected == c) { onSelect(c ?: 0) } }
             }
         }
-        if (hue && selected != 0) {
+        if (shades && selected != 0) {
+            ShadeSliders(selected, onSelect)
+        } else if (hue && selected != 0) {
             val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(selected, it) }
             var h by remember(selected) { mutableFloatStateOf(hsv[0]) }
             Slider(
@@ -320,6 +342,31 @@ fun ColourRow(title: String, selected: Int, allowAuto: Boolean = false, hue: Boo
             )
         }
     }
+}
+
+/** Hue, softness and brightness, each previewed in the colour it would make. */
+@Composable
+private fun ShadeSliders(selected: Int, onSelect: (Int) -> Unit) {
+    val start = FloatArray(3).also { android.graphics.Color.colorToHSV(selected, it) }
+    var h by remember(selected) { mutableFloatStateOf(start[0]) }
+    var s by remember(selected) { mutableFloatStateOf(start[1]) }
+    var v by remember(selected) { mutableFloatStateOf(start[2]) }
+    val now = android.graphics.Color.HSVToColor(floatArrayOf(h, s, v))
+    val done = { onSelect(android.graphics.Color.HSVToColor(floatArrayOf(h, s, v))) }
+    @Composable
+    fun Shade(label: String, value: Float, range: ClosedFloatingPointRange<Float>, set: (Float) -> Unit) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(84.dp))
+            Slider(
+                value = value, onValueChange = set, onValueChangeFinished = done, valueRange = range,
+                colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = Color(now)),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+    Shade("Colour", h, 0f..360f) { h = it }
+    Shade("Softness", 1f - s, 0f..1f) { s = 1f - it }
+    Shade("Brightness", v, 0f..1f) { v = it }
 }
 
 @Composable

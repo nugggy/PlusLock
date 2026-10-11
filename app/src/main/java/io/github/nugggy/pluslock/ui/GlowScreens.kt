@@ -4,11 +4,25 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
+import io.github.nugggy.pluslock.core.IntPref
+import io.github.nugggy.pluslock.service.MAX_CHARGE_COLOURS
+import io.github.nugggy.pluslock.service.chargePalette
+import io.github.nugggy.pluslock.service.saveChargePalette
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -390,7 +404,6 @@ fun ChargingScreen(nav: Nav) {
     val anim by P.chargeAnimOn.observe()
     val mode by P.chargeColourMode.observe()
     val colour by P.chargeColour.observe()
-    val colour2 by P.chargeColour2.observe()
     fun preview() {
         if (needsService(ctx)) return
         PlusAccessibilityService.instance?.chargeFx?.preview()
@@ -452,15 +465,34 @@ fun ChargingScreen(nav: Nav) {
         }
         item {
             Section("Colours") {
+                ChargePreview(height = 260)
                 PrefChoice(P.chargeColourMode, "Colour", linkedMapOf(
-                    "LEVEL" to "By level: red, then yellow, then green",
-                    "CUSTOM" to "My colour",
-                    "DUO" to "Two colours blended",
+                    "LEVEL" to "By level: one colour when low, one in the middle, one when nearly full",
+                    "CUSTOM" to "One colour",
+                    "DUO" to "Several colours, blended together",
+                    "CYCLE" to "Several colours, fading from one to the next",
                     "RAINBOW" to "Rainbow, always changing",
                 ))
-                if (mode == "CUSTOM" || mode == "DUO") ColourRow("My colour", colour) { P.chargeColour.value = it }
-                if (mode == "DUO") ColourRow("Second colour", colour2) { P.chargeColour2.value = it }
-                Note("These colours are shared by the charging animation and the charging glow.")
+                when (mode) {
+                    "CUSTOM" -> ColourRow("My colour", colour) { P.chargeColour.value = it }
+                    "DUO", "CYCLE" -> PaletteEditor()
+                    "RAINBOW" -> {}
+                    else -> {
+                        PrefColour(P.chargeColourLow, "Under 20%")
+                        PrefColour(P.chargeColourMid, "20% to 49%")
+                        PrefColour(P.chargeColourHigh, "50% and over")
+                    }
+                }
+                Note("These colours are shared by the charging animation and the charging glow. The glow uses the first two of several colours.")
+            }
+        }
+        item {
+            Section("Detail colours") {
+                PrefColour(P.chargeTextColour, "Percentage and text")
+                PrefColour(P.chargeSparkColour, "Bubbles, sparks and stars")
+                PrefColour(P.chargeBoltColour, "Lightning bolt beside the percentage")
+                PrefColour(P.chargeBgColour, "Background", hue = false)
+                Note("Background darkness under Animation look sets how strongly the background colour covers your lock screen.")
             }
         }
         item {
@@ -495,7 +527,7 @@ fun ChargingScreen(nav: Nav) {
 
 /** A small phone-shaped live preview of the charging animation, at a made-up 62%. */
 @Composable
-private fun ChargePreview() {
+private fun ChargePreview(height: Int = 440) {
     val conf = LocalConfiguration.current
     val aspect = conf.screenWidthDp.toFloat() / conf.screenHeightDp.coerceAtLeast(1)
     val view = remember { mutableStateOf<ChargeScreenView?>(null) }
@@ -507,7 +539,7 @@ private fun ChargePreview() {
     Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
         // A stand-in wallpaper behind, so the background darkness setting shows.
         Box(
-            Modifier.height(440.dp).aspectRatio(aspect.coerceIn(0.4f, 0.8f))
+            Modifier.height(height.dp).aspectRatio(aspect.coerceIn(0.4f, 0.8f))
                 .clip(RoundedCornerShape(28.dp))
                 .background(Brush.linearGradient(listOf(Color(0xFF3A4A8C), Color(0xFF8C3A6E), Color(0xFFE0864A)))),
         ) {
@@ -521,6 +553,67 @@ private fun ChargePreview() {
                 modifier = Modifier.matchParentSize(),
             )
         }
+    }
+}
+
+@Composable
+private fun PrefColour(pref: IntPref, title: String, hue: Boolean = true) {
+    val v by pref.observe()
+    ColourRow(title, v, shades = hue, options = if (hue) swatches else darkSwatches + swatches.take(8), hue = hue) { pref.value = it }
+}
+
+/** The list of colours for the several-colour modes: tap one to change it, add more, or take one away. */
+@Composable
+private fun PaletteEditor() {
+    val raw by P.chargeColours.observe()
+    val first by P.chargeColour.observe()
+    val second by P.chargeColour2.observe()
+    val colours = remember(raw, first, second) { chargePalette() }
+    var picked by remember { mutableIntStateOf(0) }
+    val sel = picked.coerceIn(0, colours.lastIndex)
+    Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) {
+        Text("My colours", style = MaterialTheme.typography.bodyLarge)
+        Text("Tap one to change it. The first sits at the bottom of the fill.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            colours.forEachIndexed { i, c ->
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape).background(Color(c))
+                        .border(if (i == sel) 3.dp else 1.dp, if (i == sel) MaterialTheme.colorScheme.primary else Color(0x33FFFFFF), CircleShape)
+                        .clickable { picked = i },
+                    contentAlignment = Alignment.Center,
+                ) { Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = if (Color(c).luminance() > 0.5f) Color.Black else Color.White) }
+            }
+            if (colours.size < MAX_CHARGE_COLOURS) {
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable {
+                            // A new colour starts a little round the colour wheel from the last one.
+                            val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(colours.last(), it) }
+                            hsv[0] = (hsv[0] + 50f) % 360f
+                            saveChargePalette(colours + android.graphics.Color.HSVToColor(hsv))
+                            picked = colours.size
+                        },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Add, "Add a colour") }
+            }
+        }
+        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(enabled = sel > 0, onClick = {
+                saveChargePalette(colours.toMutableList().apply { add(sel - 1, removeAt(sel)) }); picked = sel - 1
+            }) { Text("Move left") }
+            TextButton(enabled = sel < colours.lastIndex, onClick = {
+                saveChargePalette(colours.toMutableList().apply { add(sel + 1, removeAt(sel)) }); picked = sel + 1
+            }) { Text("Move right") }
+            TextButton(enabled = colours.size > 2, onClick = {
+                saveChargePalette(colours.filterIndexed { i, _ -> i != sel }); picked = (sel - 1).coerceAtLeast(0)
+            }) { Text("Remove") }
+        }
+    }
+    ColourRow("Colour ${sel + 1}", colours[sel], shades = true) { c ->
+        saveChargePalette(colours.toMutableList().also { it[sel] = c })
     }
 }
 
