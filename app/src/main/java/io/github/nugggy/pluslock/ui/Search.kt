@@ -120,7 +120,7 @@ val featureIndex: List<Feature> = listOf(
     Feature("Network speed meter", "Look and feel", Screen.Look, "status", "internet speed data network kb mb meter"),
     Feature("Lock screen clock", "Look and feel", Screen.Look, "lockscreen", "clock lock screen font time date style"),
     Feature("Status bar icons and clock seconds", "Look and feel", Screen.Look, "status", "status bar icons hide seconds clock"),
-    Feature("Interactive wallpapers", "Interactive wallpapers", Screen.PlayWallpaper, "wallpaper", "interactive live wallpaper touch tilt swarm particles ripples water fireflies neon trails draw constellation marbles battery tide lava lamp"),
+    Feature("Interactive wallpapers", "Interactive wallpapers", Screen.PlayWallpaper, "wallpaper", "interactive live wallpaper touch tilt swarm particles ripples water fireflies neon trails draw constellation marbles battery tide lava lamp colour colours color palette"),
     Feature("Living sky wallpaper", "Living sky wallpaper", Screen.Wallpaper, "wallpaper", "wallpaper background live weather sky stars"),
     // Apps
     Feature("App profiles", "App profiles", Screen.Profiles, "apps", "per app volume rotation brightness profile"),

@@ -375,7 +375,9 @@ object P {
 
     // Interactive wallpapers
     val playTheme = StringPref("play_theme", "SWARM")
-    val playColourMode = StringPref("play_colour_mode", "THEME") // THEME, MINE, RAINBOW
+    val playColourMode = StringPref("play_colour_mode", "THEME") // THEME, MINE, CUSTOM, RAINBOW
+    /** Each wallpaper's own mix of colours, as {"FIREFLIES": "FFFFF35E,FFA6FF4D"}. */
+    val playColoursJson = StringPref("play_colours_json", "{}")
     val playColour = IntPref("play_colour", 0xFF7FB2FF.toInt())
     val playDensity = IntPref("play_density_pct", 100)
     val playSpeed = IntPref("play_speed_pct", 100)

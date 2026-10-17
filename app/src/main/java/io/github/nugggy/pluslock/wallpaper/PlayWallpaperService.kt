@@ -16,15 +16,31 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Prefs
+import org.json.JSONObject
 
 /** Reads the settings into a renderer. Shared by the wallpaper and the preview in settings. */
 fun PlayRenderer.applyPrefs() {
     theme = P.playTheme.value
     colourMode = P.playColourMode.value
     colour = P.playColour.value
+    colours = playColours(theme).toIntArray()
     density = P.playDensity.value / 100f
     speed = P.playSpeed.value / 100f
     blackBackground = P.playBlack.value
+}
+
+/** The colours you picked for [theme], or its own colours if you haven't changed them. */
+fun playColours(theme: String): List<Int> {
+    val saved = runCatching { JSONObject(P.playColoursJson.value).optString(theme) }.getOrDefault("")
+        .split(',').mapNotNull { it.trim().toLongOrNull(16)?.toInt() }
+    return saved.ifEmpty { PlayRenderer.themePalette[theme]?.toList() ?: listOf(P.playColour.value) }
+        .take(PlayRenderer.MAX_COLOURS)
+}
+
+fun savePlayColours(theme: String, colours: List<Int>) {
+    val o = runCatching { JSONObject(P.playColoursJson.value) }.getOrDefault(JSONObject())
+    o.put(theme, colours.joinToString(",") { "%08X".format(it) })
+    P.playColoursJson.value = o.toString()
 }
 
 fun batteryFraction(ctx: Context): Float {

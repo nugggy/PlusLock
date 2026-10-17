@@ -15,11 +15,14 @@ import android.view.View
 import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -30,6 +33,8 @@ import io.github.nugggy.pluslock.wallpaper.PlayRenderer
 import io.github.nugggy.pluslock.wallpaper.PlayWallpaperService
 import io.github.nugggy.pluslock.wallpaper.applyPrefs
 import io.github.nugggy.pluslock.wallpaper.batteryFraction
+import io.github.nugggy.pluslock.wallpaper.playColours
+import io.github.nugggy.pluslock.wallpaper.savePlayColours
 
 @Composable
 fun PlayWallpaperScreen(nav: Nav) {
@@ -37,6 +42,7 @@ fun PlayWallpaperScreen(nav: Nav) {
     val theme by P.playTheme.observe()
     val mode by P.playColourMode.observe()
     val colour by P.playColour.observe()
+    val mix by P.playColoursJson.observe()
     val density by P.playDensity.observe()
     val speed by P.playSpeed.observe()
     val black by P.playBlack.observe()
@@ -46,7 +52,7 @@ fun PlayWallpaperScreen(nav: Nav) {
                 factory = { PlayPreview(it) },
                 update = { v ->
                     // Read every setting so the preview follows along.
-                    listOf(theme, mode, colour, density, speed, black)
+                    listOf(theme, mode, colour, mix, density, speed, black)
                     v.renderer.applyPrefs()
                 },
                 modifier = Modifier.fillMaxWidth().height(420.dp).clip(RoundedCornerShape(28.dp)),
@@ -57,10 +63,23 @@ fun PlayWallpaperScreen(nav: Nav) {
             Section("Wallpaper") {
                 PrefChoice(P.playTheme, "Wallpaper", PlayRenderer.themes)
                 PrefChoice(P.playColourMode, "Colours", linkedMapOf(
-                    "THEME" to "The wallpaper's own colours", "MINE" to "Shades of my colour", "RAINBOW" to "Rainbow, always shifting",
+                    "THEME" to "The wallpaper's own colours", "MINE" to "Shades of my colour",
+                    "CUSTOM" to "My own mix of colours", "RAINBOW" to "Rainbow, always shifting",
                 ))
                 if (mode == "MINE") ColourRow("My colour", colour) { P.playColour.value = it }
                 PrefSwitch(P.playBlack, "Pure black background", "Easiest on the battery with the OnePlus screen")
+            }
+        }
+        if (mode == "CUSTOM") item {
+            Section("Colours for " + (PlayRenderer.themes[theme]?.substringBefore(':') ?: "this wallpaper")) {
+                val colours = remember(theme, mix) { playColours(theme) }
+                ColourListEditor(colours, "Tap one to change it, or add more. Each wallpaper keeps its own mix.", PlayRenderer.MAX_COLOURS) {
+                    savePlayColours(theme, it)
+                }
+                TextButton(
+                    onClick = { savePlayColours(theme, PlayRenderer.themePalette[theme]?.toList().orEmpty()) },
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) { Text("Back to the wallpaper's own colours") }
             }
         }
         item {

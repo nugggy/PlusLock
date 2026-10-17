@@ -569,11 +569,19 @@ private fun PaletteEditor() {
     val first by P.chargeColour.observe()
     val second by P.chargeColour2.observe()
     val colours = remember(raw, first, second) { chargePalette() }
+    ColourListEditor(colours, "Tap one to change it. The first sits at the bottom of the fill.", MAX_CHARGE_COLOURS, minColours = 2) {
+        saveChargePalette(it)
+    }
+}
+
+/** A row of colours: tap one to change it, add more up to [max], move them about or take one away. */
+@Composable
+fun ColourListEditor(colours: List<Int>, hint: String, max: Int, minColours: Int = 1, save: (List<Int>) -> Unit) {
     var picked by remember { mutableIntStateOf(0) }
     val sel = picked.coerceIn(0, colours.lastIndex)
     Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) {
         Text("My colours", style = MaterialTheme.typography.bodyLarge)
-        Text("Tap one to change it. The first sits at the bottom of the fill.", style = MaterialTheme.typography.bodySmall,
+        Text(hint, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
@@ -586,14 +594,14 @@ private fun PaletteEditor() {
                     contentAlignment = Alignment.Center,
                 ) { Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = if (Color(c).luminance() > 0.5f) Color.Black else Color.White) }
             }
-            if (colours.size < MAX_CHARGE_COLOURS) {
+            if (colours.size < max) {
                 Box(
                     Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable {
                             // A new colour starts a little round the colour wheel from the last one.
                             val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(colours.last(), it) }
                             hsv[0] = (hsv[0] + 50f) % 360f
-                            saveChargePalette(colours + android.graphics.Color.HSVToColor(hsv))
+                            save(colours + android.graphics.Color.HSVToColor(hsv))
                             picked = colours.size
                         },
                     contentAlignment = Alignment.Center,
@@ -602,18 +610,18 @@ private fun PaletteEditor() {
         }
         Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(enabled = sel > 0, onClick = {
-                saveChargePalette(colours.toMutableList().apply { add(sel - 1, removeAt(sel)) }); picked = sel - 1
+                save(colours.toMutableList().apply { add(sel - 1, removeAt(sel)) }); picked = sel - 1
             }) { Text("Move left") }
             TextButton(enabled = sel < colours.lastIndex, onClick = {
-                saveChargePalette(colours.toMutableList().apply { add(sel + 1, removeAt(sel)) }); picked = sel + 1
+                save(colours.toMutableList().apply { add(sel + 1, removeAt(sel)) }); picked = sel + 1
             }) { Text("Move right") }
-            TextButton(enabled = colours.size > 2, onClick = {
-                saveChargePalette(colours.filterIndexed { i, _ -> i != sel }); picked = (sel - 1).coerceAtLeast(0)
+            TextButton(enabled = colours.size > minColours, onClick = {
+                save(colours.filterIndexed { i, _ -> i != sel }); picked = (sel - 1).coerceAtLeast(0)
             }) { Text("Remove") }
         }
     }
     ColourRow("Colour ${sel + 1}", colours[sel], shades = true) { c ->
-        saveChargePalette(colours.toMutableList().also { it[sel] = c })
+        save(colours.toMutableList().also { it[sel] = c })
     }
 }
 

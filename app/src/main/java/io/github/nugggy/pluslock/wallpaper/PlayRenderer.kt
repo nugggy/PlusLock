@@ -31,12 +31,28 @@ class PlayRenderer {
         )
         /** Themes that need the tilt sensor to be any fun. */
         val tiltThemes = setOf("MARBLES", "TIDE", "SWARM", "LAVA")
+
+        /** Each wallpaper's own colours, and the starting point for a mix of your own. */
+        val themePalette = mapOf(
+            "SWARM" to intArrayOf(0xFF7FB2FF.toInt(), 0xFFB388FF.toInt(), 0xFF5EE4FF.toInt()),
+            "RIPPLES" to intArrayOf(0xFF5EE4FF.toInt(), 0xFF3D7BFF.toInt(), 0xFF00E5B0.toInt()),
+            "FIREFLIES" to intArrayOf(0xFFFFF35E.toInt(), 0xFFA6FF4D.toInt(), 0xFFFFC75E.toInt()),
+            "TRAILS" to intArrayOf(0xFFFF3D8A.toInt(), 0xFF5EE4FF.toInt(), 0xFFB388FF.toInt()),
+            "CONSTELLATION" to intArrayOf(0xFFFFFFFF.toInt(), 0xFF7FB2FF.toInt(), 0xFFFFC75E.toInt()),
+            "MARBLES" to intArrayOf(0xFFFF5E5E.toInt(), 0xFFFFC75E.toInt(), 0xFF4BE38A.toInt(), 0xFF7FB2FF.toInt(), 0xFFB388FF.toInt()),
+            "TIDE" to intArrayOf(0xFF4BE38A.toInt(), 0xFF5EE4FF.toInt()),
+            "LAVA" to intArrayOf(0xFFFF8A3D.toInt(), 0xFFFF3D8A.toInt(), 0xFFFFC75E.toInt()),
+        )
+
+        const val MAX_COLOURS = 8
     }
 
     var theme = "SWARM"
         set(v) { if (field != v) { field = v; reset = true } }
-    var colourMode = "THEME" // THEME, MINE, RAINBOW
+    var colourMode = "THEME" // THEME, MINE, CUSTOM, RAINBOW
     var colour = 0xFF7FB2FF.toInt()
+    /** Your own mix, used in CUSTOM mode. */
+    var colours = intArrayOf(0xFF7FB2FF.toInt())
     var density = 1f
         set(v) { if (field != v) { field = v; reset = true } }
     var speed = 1f
@@ -117,17 +133,6 @@ class PlayRenderer {
 
     // ---- colours ----
 
-    private val themePalette = mapOf(
-        "SWARM" to intArrayOf(0xFF7FB2FF.toInt(), 0xFFB388FF.toInt(), 0xFF5EE4FF.toInt()),
-        "RIPPLES" to intArrayOf(0xFF5EE4FF.toInt(), 0xFF3D7BFF.toInt(), 0xFF00E5B0.toInt()),
-        "FIREFLIES" to intArrayOf(0xFFFFF35E.toInt(), 0xFFA6FF4D.toInt(), 0xFFFFC75E.toInt()),
-        "TRAILS" to intArrayOf(0xFFFF3D8A.toInt(), 0xFF5EE4FF.toInt(), 0xFFB388FF.toInt()),
-        "CONSTELLATION" to intArrayOf(0xFFFFFFFF.toInt(), 0xFF7FB2FF.toInt(), 0xFFFFC75E.toInt()),
-        "MARBLES" to intArrayOf(0xFFFF5E5E.toInt(), 0xFFFFC75E.toInt(), 0xFF4BE38A.toInt(), 0xFF7FB2FF.toInt(), 0xFFB388FF.toInt()),
-        "TIDE" to intArrayOf(0xFF4BE38A.toInt(), 0xFF5EE4FF.toInt()),
-        "LAVA" to intArrayOf(0xFFFF8A3D.toInt(), 0xFFFF3D8A.toInt(), 0xFFFFC75E.toInt()),
-    )
-
     private fun colourFor(i: Int, t: Float): Int = when (colourMode) {
         "RAINBOW" -> Color.HSVToColor(floatArrayOf(((i * 37f) + t * 30f) % 360f, 0.7f, 1f))
         "MINE" -> {
@@ -135,6 +140,7 @@ class PlayRenderer {
             hsv[0] = (hsv[0] + ((i % 5) - 2) * 9f + 360f) % 360f
             Color.HSVToColor(hsv)
         }
+        "CUSTOM" -> colours.let { if (it.isEmpty()) colour else it[i % it.size] }
         else -> themePalette[theme]!!.let { it[i % it.size] }
     }
 
