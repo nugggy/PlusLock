@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lens
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Swipe
@@ -70,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.nugggy.pluslock.core.BoolPref
 import io.github.nugggy.pluslock.core.P
+import io.github.nugggy.pluslock.core.Pause
 import io.github.nugggy.pluslock.core.Status
 
 private data class Perm(val title: String, val why: String, val granted: Boolean, val action: () -> Unit)
@@ -136,6 +138,7 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
         }
+        item { PauseCard() }
         if (missing > 0) item { SetupCard(perms, missing) { open(Status.appInfoIntent(ctx)) } }
         item { UpdateCard(nav) }
 
@@ -179,6 +182,42 @@ fun HomeScreen(nav: Nav, resumeTick: Int) {
                 Module(Icons.Rounded.MedicalServices, "Diagnostics", "Check what works on this phone and copy a report", null) { nav.go(Screen.Diagnostics) }
                 Module(Icons.Rounded.Policy, "Legal and about", "Privacy policy, terms of use, licences and safety notes", null) { nav.go(Screen.Legal()) }
             }
+        }
+    }
+}
+
+/** The master switch: stops every feature, to rule the app in or out when the phone acts up. */
+@Composable
+private fun PauseCard() {
+    val ctx = LocalContext.current
+    val paused by P.allPaused.observe()
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (paused) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.PauseCircle, null, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (paused) "Everything is paused" else "Pause everything",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    if (paused) {
+                        "Nothing is drawn on screen, no notifications are read, no settings are changed and nothing runs " +
+                            "in the background. Your settings are kept. A live wallpaper from this app keeps running until you pick another wallpaper."
+                    } else {
+                        "Phone doing something odd? Switch every feature off at once to see if it's this app. There's a Quick Settings tile for it too."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Switch(checked = paused, onCheckedChange = { Pause.set(ctx, it) })
         }
     }
 }

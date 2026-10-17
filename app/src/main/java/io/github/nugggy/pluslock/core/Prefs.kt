@@ -383,6 +383,9 @@ object P {
     val playBlack = BoolPref("play_black", true)
     val playSmooth = BoolPref("play_smooth", false)
 
+    // Pause everything, to rule the app in or out when the phone misbehaves
+    val allPaused = BoolPref("all_paused", false)
+
     // Updates
     val updateChannel = StringPref("update_channel", "stable")
     val autoUpdate = BoolPref("auto_update", true)

@@ -19,6 +19,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
+import io.github.nugggy.pluslock.core.Diag
 import io.github.nugggy.pluslock.core.P
 import io.github.nugggy.pluslock.core.Prefs
 import io.github.nugggy.pluslock.core.Silence
@@ -87,11 +88,28 @@ class PlusAccessibilityService : AccessibilityService() {
         handler.post { onPrefChanged(key ?: return@post) }
     }
 
+    /** False while everything is paused: no components exist, and events are ignored. */
+    private var running = false
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         Prefs.init(this)
         Torch.init(this)
         wm = getSystemService(WindowManager::class.java)
+        imePackages = runCatching {
+            getSystemService(InputMethodManager::class.java).inputMethodList.map { it.packageName }.toSet()
+        }.getOrDefault(emptySet())
+        Prefs.sp.registerOnSharedPreferenceChangeListener(prefListener)
+        if (P.allPaused.value) {
+            Diag.log("pause", "accessibility service connected, staying paused")
+            updateKeyFilter()
+        } else {
+            startAll()
+        }
+    }
+
+    /** Builds every component fresh and starts it, so resuming after a pause is like a clean start. */
+    private fun startAll() {
         gestures = EdgeGestures(this)
         lighting = EdgeLighting(this)
         ring = CameraRing(this)
@@ -112,11 +130,8 @@ class PlusAccessibilityService : AccessibilityService() {
         filter = ScreenFilter(this)
         digest = Digest(this)
         routines = RoutineEngine(this)
-        imePackages = runCatching {
-            getSystemService(InputMethodManager::class.java).inputMethodList.map { it.packageName }.toSet()
-        }.getOrDefault(emptySet())
+        running = true
         instance = this
-        Prefs.sp.registerOnSharedPreferenceChangeListener(prefListener)
         // Put back anything a previous run changed and didn't get to restore.
         profiles.restoreAll()
         battery.start()
@@ -170,17 +185,18 @@ class PlusAccessibilityService : AccessibilityService() {
     private fun updateKeyFilter() {
         val info = serviceInfo ?: return
         val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
-        val want = volumeSkip.wanted
+        val want = running && volumeSkip.wanted
         val has = info.flags and flag != 0
         if (want == has) return
         info.flags = if (want) info.flags or flag else info.flags and flag.inv()
         serviceInfo = info
     }
 
-    override fun onKeyEvent(event: KeyEvent): Boolean = volumeSkip.onKey(event)
+    override fun onKeyEvent(event: KeyEvent): Boolean = running && volumeSkip.onKey(event)
 
     /** An exact alarm from [io.github.nugggy.pluslock.core.Alarms] went off. */
     fun onAlarm(key: String) {
+        if (!running) return
         when {
             key == Digest.ALARM -> digest.onAlarm()
             key == BatteryWatcher.ALARM -> battery.checkBedtime()
@@ -190,12 +206,19 @@ class PlusAccessibilityService : AccessibilityService() {
 
     /** The clock or time zone changed, so every scheduled time needs working out again. */
     fun onClockChanged() {
+        if (!running) return
         routines.scheduleTimes()
         digest.schedule()
         battery.scheduleBedtime()
     }
 
     private fun onPrefChanged(key: String) {
+        if (key == P.allPaused.key) {
+            val paused = P.allPaused.value
+            if (paused && running) stopAll() else if (!paused && !running) startAll()
+            return
+        }
+        if (!running) return
         when {
             key.startsWith("gesture") || key.startsWith("handle") -> gestures.refresh()
             key.startsWith("ring") -> ring.refresh()
@@ -217,6 +240,7 @@ class PlusAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        if (!running) return
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
         val cls = event.className?.toString() ?: return
@@ -245,6 +269,7 @@ class PlusAccessibilityService : AccessibilityService() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         handler.postDelayed({
+            if (!running) return@postDelayed
             gestures.refresh()
             ring.refresh()
             statusTap.refresh()
@@ -259,8 +284,19 @@ class PlusAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
-        instance = null
         runCatching { Prefs.sp.unregisterOnSharedPreferenceChangeListener(prefListener) }
+        if (running) stopAll()
+        instance = null
+        VolumeBoost.releaseAll()
+        super.onDestroy()
+    }
+
+    /** Takes down everything [startAll] put up and restores what app profiles changed. */
+    private fun stopAll() {
+        running = false
+        // Nothing elsewhere in the app can reach the components while paused.
+        instance = null
+        foregroundPkg = ""
         runCatching { unregisterReceiver(screenReceiver) }
         if (::battery.isInitialized) battery.stop()
         if (::motion.isInitialized) { motion.restoreFlip(); motion.stop() }
@@ -282,7 +318,7 @@ class PlusAccessibilityService : AccessibilityService() {
         if (::focus.isInitialized) focus.dismiss()
         if (::profiles.isInitialized) profiles.restoreAll()
         VolumeBoost.releaseAll()
-        super.onDestroy()
+        updateKeyFilter()
     }
 
     // ---- overlay helpers shared by the components ----

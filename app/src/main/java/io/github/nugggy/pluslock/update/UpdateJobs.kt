@@ -36,7 +36,8 @@ class UpdateJobService : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         Prefs.init(this)
         Thread {
-            runCatching { Updater.runScheduled(applicationContext, foregroundUi = MainActivity.isVisible) }
+            // Paused means nothing happens in the background, updates included. Checking by hand still works.
+            if (!P.allPaused.value) runCatching { Updater.runScheduled(applicationContext, foregroundUi = MainActivity.isVisible) }
             jobFinished(params, false)
         }.start()
         return true

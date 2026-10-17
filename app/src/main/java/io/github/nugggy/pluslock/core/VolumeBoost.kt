@@ -54,7 +54,7 @@ object VolumeBoost {
 
     /** The gain to use right now, in millibels. */
     private fun gainMb(): Int {
-        if (!P.boostOn.value) return 0
+        if (!P.boostOn.value || P.allPaused.value) return 0
         if (P.boostSpeakerOnly.value && headphones) return 0
         return P.boostDb.value.coerceIn(0, 15) * 100
     }

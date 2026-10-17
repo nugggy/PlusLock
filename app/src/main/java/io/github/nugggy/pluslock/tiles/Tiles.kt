@@ -12,6 +12,7 @@ import android.service.quicksettings.TileService
 import io.github.nugggy.pluslock.R
 import io.github.nugggy.pluslock.core.Caffeine
 import io.github.nugggy.pluslock.core.P
+import io.github.nugggy.pluslock.core.Pause
 import io.github.nugggy.pluslock.core.Prefs
 import io.github.nugggy.pluslock.core.Silence
 import io.github.nugggy.pluslock.core.SoundMode
@@ -144,5 +145,17 @@ class PauseLightingTile : BaseTile() {
     override fun render() {
         val label = Silence.tileLabel()
         set(if (label != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE, label ?: "Off")
+    }
+}
+
+/** Stops every feature at once, to check whether the app is behind something the phone is doing. */
+class PauseAllTile : BaseTile() {
+    override fun onClick() {
+        Pause.set(this, !Pause.on)
+        render()
+    }
+
+    override fun render() {
+        if (Pause.on) set(Tile.STATE_ACTIVE, "Everything paused") else set(Tile.STATE_INACTIVE, "Running")
     }
 }

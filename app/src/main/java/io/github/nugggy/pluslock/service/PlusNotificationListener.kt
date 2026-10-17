@@ -59,6 +59,10 @@ class PlusNotificationListener : NotificationListenerService() {
     }
 
     companion object {
+        /** Set while connected, so pausing everything can disconnect it. */
+        @Volatile var instance: PlusNotificationListener? = null
+            private set
+
         /** Notifications showing now, not counting ongoing ones. For the lock screen clock. */
         @Volatile var unreadCount = 0
             private set
@@ -69,6 +73,7 @@ class PlusNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {
+        if (P.allPaused.value) return
         countUnread()
         if (sbn.packageName == packageName) return
         IslandState.onPosted(this, sbn)
@@ -232,6 +237,9 @@ class PlusNotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        // Android binds the listener again after a restart; stay disconnected while paused.
+        if (P.allPaused.value) { runCatching { requestUnbind() }; return }
+        instance = this
         IslandState.requestMedia = { pickMedia() }
         IslandState.reset(this, runCatching { activeNotifications.toList() }.getOrDefault(emptyList()))
         runCatching {
@@ -242,6 +250,7 @@ class PlusNotificationListener : NotificationListenerService() {
     }
 
     override fun onListenerDisconnected() {
+        instance = null
         runCatching { getSystemService(MediaSessionManager::class.java).removeOnActiveSessionsChangedListener(sessionsChanged) }
         controller?.unregisterCallback(mediaCallback)
         controller = null
@@ -386,6 +395,7 @@ class PlusNotificationListener : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        instance = null
         handler.removeCallbacks(reminder)
         tts?.shutdown()
         io.shutdown()

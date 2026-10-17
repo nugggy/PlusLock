@@ -45,6 +45,9 @@ object AppAudio {
         if (now > 0) { beforeMute[pkg] = now; setLevel(pkg, 0) } else setLevel(pkg, beforeMute.remove(pkg) ?: 100)
     }
 
+    /** Applies the saved levels again, or takes every effect off while everything is paused. */
+    fun reapply() = sessions.forEach { (id, pkg) -> apply(id, pkg) }
+
     fun resetAll() {
         P.appVolumesJson.value = "{}"
         sessions.forEach { (id, pkg) -> apply(id, pkg) }
@@ -65,7 +68,7 @@ object AppAudio {
     }
 
     private fun apply(id: Int, pkg: String) {
-        val pct = level(pkg)
+        val pct = if (P.allPaused.value) 100 else level(pkg)
         if (pct == 100) { effects.remove(id)?.let { runCatching { it.release() } }; return }
         val db = if (pct <= 0) -90f else (20 * log10(pct / 100f)).coerceIn(-60f, 6f)
         runCatching {

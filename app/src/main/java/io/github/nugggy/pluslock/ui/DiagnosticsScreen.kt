@@ -97,6 +97,7 @@ private fun report(ctx: Context, list: List<Check>): String = buildString {
     appendLine()
     list.forEach { appendLine((when (it.ok) { true -> "OK   "; false -> "NO   "; null -> "?    " }) + it.name + ": " + it.detail) }
     appendLine()
+    if (P.allPaused.value) appendLine("EVERYTHING IS PAUSED: no features are running")
     appendLine("Features on: " + listOfNotNull(
         "edge lighting".takeIf { P.lightingOn.value }, "lock screen glow".takeIf { P.lightingWake.value },
         "camera ring".takeIf { P.ringOn.value }, "charging animation".takeIf { P.chargeAnimOn.value },

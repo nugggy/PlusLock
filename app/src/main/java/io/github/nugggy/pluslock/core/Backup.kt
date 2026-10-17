@@ -14,7 +14,7 @@ object Backup {
     /** Changing state, history and logs, which don't belong in a backup. */
     private val skip = listOf(
         "usage_", "restore_", "update_", "battlog_", "digest_last", "caffeine_until",
-        "lighting_silence_", "sky_weather_json", "last_seen_version",
+        "lighting_silence_", "sky_weather_json", "last_seen_version", "all_paused",
     )
 
     private fun keep(key: String) = skip.none { key.startsWith(it) }

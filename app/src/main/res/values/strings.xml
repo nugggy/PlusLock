@@ -13,6 +13,7 @@
     <string name="tile_deck">Control deck</string>
     <string name="tile_gestures">Edge gestures</string>
     <string name="tile_pause_lighting">Pause lighting</string>
+    <string name="tile_pause_all">Pause everything</string>
     <string name="play_wallpaper_label">Pimp my Phone Play</string>
     <string name="play_wallpaper_desc">Interactive wallpapers that react to your touch, tilting the phone and your battery</string>
 </resources>
